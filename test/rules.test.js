@@ -72,10 +72,22 @@ test('edição: não se muda o criador, o tipo, nem se finge ser outro editor', 
   await assertFails(updateDoc(ref(fora()), { ...base, updatedByEmail: 'x@outra-empresa.com' }));
 });
 
-test('apagar: só quem é da empresa', async () => {
+const francisco = () => env.authenticatedContext('francisco', { email: 'Francisco.Martins@harkersolutions.com' }).firestore();
+
+test('apagar: só o administrador, mesmo as notas de outros', async () => {
   await assertSucceeds(setDoc(ref(ana()), novo()));
   await assertFails(deleteDoc(ref(fora())));
-  await assertSucceeds(deleteDoc(ref(rui())));
+  await assertFails(deleteDoc(ref(anon())));
+  await assertFails(deleteDoc(ref(rui()))); // colega da empresa
+  await assertFails(deleteDoc(ref(ana()))); // nem o próprio autor
+  await assertSucceeds(getDoc(ref(ana())));
+  await assertSucceeds(deleteDoc(ref(francisco())));
+});
+
+test('apagar: o administrador também cria e edita como os outros', async () => {
+  await assertSucceeds(setDoc(ref(francisco()), novo('francisco.martins@harkersolutions.com')));
+  await assertFails(deleteDoc(ref(rui())));
+  await assertSucceeds(deleteDoc(ref(francisco())));
 });
 
 test('fora de projects/*/notes não há acesso', async () => {

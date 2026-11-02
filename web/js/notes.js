@@ -12,6 +12,9 @@ let identity = null; // { name, email } quando há sessão Microsoft 365
 export function setIdentity(i) { identity = i; }
 export function getIdentity() { return identity; }
 
+let admin = ""; // email de quem pode apagar notas no modo partilhado
+export function setAdmin(email) { admin = String(email || "").toLowerCase(); }
+
 /** Nome de quem escreve. Com login vem da sessão (Microsoft 365); sem login é o que a pessoa escreveu. */
 export function getUser() {
   if (identity) return identity.name;
@@ -163,6 +166,11 @@ export class NoteStore {
 
   // ---------- operações ----------
 
+  /** No modo partilhado só o administrador apaga notas (imposto pelas regras do servidor). */
+  canDelete() {
+    return !this.remote || (!!identity && identity.email === admin);
+  }
+
   /** kind: project | folio | element | conductor | pin */
   find(kind, ref) {
     return this.notes.find((n) => n.kind === kind && n.ref === ref);
@@ -183,7 +191,7 @@ export class NoteStore {
     n.text = text;
     n.updated = Date.now();
     n.updatedBy = getUser();
-    if (!text.trim() && kind !== "pin") {
+    if (!text.trim() && kind !== "pin" && this.canDelete()) {
       this.notes = this.notes.filter((x) => x !== n);
       this.commit(null, n.id);
       return null;
@@ -209,9 +217,12 @@ export class NoteStore {
     this.commit(n);
   }
 
+  /** Devolve false se esta pessoa não pode apagar notas. */
   remove(id) {
+    if (!this.canDelete()) return false;
     this.notes = this.notes.filter((n) => n.id !== id);
     this.commit(null, id);
+    return true;
   }
 
   pinsOf(folio) {

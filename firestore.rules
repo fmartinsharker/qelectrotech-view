@@ -52,7 +52,8 @@ service cloud.firestore {
         && request.resource.data.get('x', null) == resource.data.get('x', null)
         && request.resource.data.get('y', null) == resource.data.get('y', null);
 
-      allow delete: if allowed();
+      // só o administrador apaga notas (os outros podem criar e editar, nunca apagar)
+      allow delete: if allowed() && email() == 'francisco.martins@harkersolutions.com';
     }
   }
 }

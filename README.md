@@ -41,7 +41,7 @@ Com o Firebase configurado, a página exige login com a conta Microsoft 365 e as
 - O **email** de quem escreve vem do login e as **datas** são as do servidor: as regras (`firestore.rules`) recusam notas com outro autor ou datas falsas, e impedem mudar quem criou uma nota. O **nome** mostrado é o da conta e serve só para apresentação; o que identifica é o email.
 - As notas ligam-se ao **título do projecto** + UUID dos elementos: todas as revisões do mesmo projecto partilham notas.
 - Duas pessoas a editar a **mesma** nota ao mesmo tempo: ganha a última a gravar.
-- Qualquer pessoa da empresa pode editar e apagar qualquer nota.
+- Qualquer pessoa da empresa pode criar e editar notas; só o administrador (`notesAdmin` em `web/js/firebase-config.js` e a regra de `delete` em `firestore.rules`) pode apagá-las.
 
 ### Custo: 0 €, sem cartão
 

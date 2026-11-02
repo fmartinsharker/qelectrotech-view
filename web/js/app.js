@@ -1,7 +1,8 @@
 import { parseProject, elementName, locationOf, relatedOf, nested, str, GENERIC_FONT } from "./qet.js";
 import { renderFolio, elementBox, esc } from "./render.js";
-import { NoteStore, getUser, setUser, setIdentity } from "./notes.js";
-import { firebaseConfig, microsoftTenant, emailDomain } from "./firebase-config.js";
+import { NoteStore, getUser, setUser, setIdentity, setAdmin } from "./notes.js";
+import { firebaseConfig, microsoftTenant, emailDomain, notesAdmin } from "./firebase-config.js";
+setAdmin(notesAdmin);
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -569,7 +570,9 @@ function pinInfo(id) {
   return (
     `<h2>Nota ${k} no desenho</h2><p class="sub">Folha ${esc(S.folio.folioLabel)} · posição ${n.x}, ${n.y}</p>` +
     noteEditor("pin", id, "Texto da nota") +
-    `<p><button id="delPin">Apagar esta nota</button></p>`
+    (S.notes.canDelete()
+      ? `<p><button id="delPin">Apagar esta nota</button></p>`
+      : `<p class="hint">Só o administrador pode apagar notas.</p>`)
   );
 }
 
@@ -593,8 +596,7 @@ $("#infoBody").addEventListener("click", (e) => {
   const a = e.target.closest("[data-go]");
   if (a) { e.preventDefault(); go(a.dataset.go); return; }
   if (e.target.id === "delPin" && S.sel?.type === "pin") {
-    S.notes.remove(S.sel.id);
-    select(null, { open: false });
+    if (S.notes.remove(S.sel.id)) select(null, { open: false });
   }
 });
 $("#infoBody").addEventListener("keydown", (e) => {
