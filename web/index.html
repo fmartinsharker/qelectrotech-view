@@ -89,7 +89,7 @@
     </div>
   </section>
 
-  <aside id="info"><div id="infoBody"></div></aside>
+  <aside id="info"><button class="icon pop-close" id="popClose" title="Fechar (Esc)" aria-label="Fechar">×</button><div id="infoBody"></div></aside>
 
   <div class="resizer" id="rzSide" role="separator" aria-orientation="vertical" aria-label="Largura da barra da esquerda" tabindex="0" title="Arrasta para redimensionar (duplo clique repõe)"></div>
   <div class="resizer" id="rzInfo" role="separator" aria-orientation="vertical" aria-label="Largura da barra da direita" tabindex="0" title="Arrasta para redimensionar (duplo clique repõe)"></div>
@@ -97,11 +97,8 @@
   <div id="welcome">
     <div class="card">
       <h1>QElectroTech View</h1>
-      <p>Abre um ficheiro <code>.qet</code> em <strong>modo de leitura</strong>, navega pelas <strong>referências cruzadas</strong> (contactos ↔ bobinas, reports de folha) e escreve <strong>notas</strong> sem alterar o projecto.</p>
       <div id="loginBox" class="drop" hidden>
-        <p><strong>Entra com a conta Microsoft 365 da empresa</strong></p>
-        <p class="hint">O login serve para registar quem escreve cada nota e partilhá-las com a equipa.</p>
-        <button id="btnLogin" class="primary">Entrar com Microsoft 365</button>
+        <button id="btnLogin" class="primary">Login</button>
         <p id="loginError" class="error" role="alert"></p>
       </div>
       <div id="drop" class="drop">
@@ -109,7 +106,6 @@
         <p>ou</p>
         <button id="btnOpen2" class="primary">Escolher ficheiro…</button>
       </div>
-      <p class="hint">O ficheiro é lido no teu browser e <strong>não é enviado para nenhum servidor</strong>. As notas ficam guardadas neste browser; podes exportá-las.</p>
       <p id="loadError" class="error" role="alert"></p>
     </div>
   </div>

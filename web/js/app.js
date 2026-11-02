@@ -129,7 +129,7 @@ S.authReady = initAuth();
 
 async function load(text, name) {
   await S.authReady;
-  if (fbConfig && !S.auth) throw new Error("Entra primeiro com a conta Microsoft 365.");
+  if (fbConfig && !S.auth) throw new Error("Faz login primeiro.");
   const p = parseProject(text, name);
   await loadFonts(p.fonts);
   if (!p.folios.length) throw new Error("O projecto não tem folhas.");
@@ -363,6 +363,7 @@ function domBox(uuid) {
 const rectSvg = (b, cls, pad = 3) => `<rect class="${cls}" x="${b.x - pad}" y="${b.y - pad}" width="${b.w + 2 * pad}" height="${b.h + 2 * pad}" rx="3"/>`;
 
 function drawSelection() {
+  document.body.classList.toggle("has-sel", !!S.sel);
   const hl = S.svg?.querySelector(".hl");
   if (!hl) return;
   let h = "";
@@ -1007,7 +1008,7 @@ window.addEventListener("drop", (e) => {
 window.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
   if (e.key === "Escape") {
-    if (document.body.classList.contains("focus")) setFocus(false);
+    if (document.body.classList.contains("focus")) { if (S.sel) select(null, { open: false }); else setFocus(false); }
     else if (S.pin) setPinMode(false);
     else if (typing) e.target.blur();
     else { select(null, { open: false }); $("#app").classList.remove("show-side", "show-info"); }
@@ -1074,3 +1075,5 @@ splash.focus();
 
 // botão ✉ do cabeçalho: o mesmo que «Partilhar por email» do separador Notas
 $("#btnMail").addEventListener("click", () => $("#btnShareMail").click());
+
+$("#popClose").addEventListener("click", () => select(null, { open: false }));
