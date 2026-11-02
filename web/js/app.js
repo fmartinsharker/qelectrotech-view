@@ -1058,14 +1058,11 @@ updateHistButtons();
 // ---------------------------------------------------------------- ecrã de abertura / sobre
 
 const splash = $("#splash");
-let splashTimer = null;
 function hideSplash() {
-  clearTimeout(splashTimer);
   splash.classList.add("out");
   splash.setAttribute("aria-hidden", "true");
 }
 function showSplash() {
-  clearTimeout(splashTimer);
   splash.classList.remove("out");
   splash.removeAttribute("aria-hidden");
   splash.focus();
@@ -1075,7 +1072,6 @@ splash.addEventListener("keydown", hideSplash);
 $("#brand").addEventListener("click", showSplash);
 $("#brand").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showSplash(); } });
 splash.focus();
-splashTimer = setTimeout(hideSplash, 3500);
 
 // botão ✉ do cabeçalho: o mesmo que «Partilhar por email» do separador Notas
 $("#btnMail").addEventListener("click", () => $("#btnShareMail").click());
