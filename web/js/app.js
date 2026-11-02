@@ -512,8 +512,7 @@ function folioInfo() {
     `<h2>Folha ${esc(f.folioLabel)}</h2><p class="sub">${esc(f.title)}</p>` +
     `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` +
     noteEditor("folio", f.id, "Nota desta folha") +
-    noteEditor("project", "project", `Nota do projecto${p.title ? ` “${p.title}”` : ""}`) +
-    `<p class="hint" style="margin-top:16px">Clica num elemento para ver os detalhes e as referências cruzadas. Usa «＋ Nota no desenho» para deixar uma nota num ponto da folha.</p>`
+    noteEditor("project", "project", `Nota do projecto${p.title ? ` “${p.title}”` : ""}`)
   );
 }
 
@@ -672,9 +671,7 @@ function refreshNotesStatus() {
   if (!n) return;
   let t;
   if (n.shared) {
-    const base = "Notas partilhadas com a equipa (Microsoft 365).";
-    const hhmm = new Date(n.lastSync).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
-    t = n.status === "saved" ? `${base} Sincronizado às ${hhmm}.` : `${base} ${STATUS_TEXT[n.status] || ""}`;
+    t = n.status === "saved" ? "" : STATUS_TEXT[n.status] || "";
   } else {
     t = n.persistent ? "As notas ficam guardadas só neste browser, ligadas aos UUID do projecto. Exporta-as para guardar uma cópia ou levá-las para outro computador." : "Atenção: o browser não deixa guardar dados locais (modo privado?). Exporta as notas antes de fechar.";
   }
