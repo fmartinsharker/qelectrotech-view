@@ -420,7 +420,7 @@ function updateHistButtons() {
   $("#histFwd").disabled = !S.fwd.length;
 }
 
-/** Salta para um elemento (muda de folio se for preciso), seleccionando-o e centrando-o. */
+/** Salta para um elemento (muda de folha se for preciso), seleccionando-o e centrando-o. */
 function go(uuid, { push = true } = {}) {
   const el = S.project.byUuid.get(uuid);
   if (!el) return;
@@ -511,7 +511,7 @@ function folioInfo() {
     `<dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` +
     noteEditor("folio", f.id, "Nota desta folha") +
     noteEditor("project", "project", `Nota do projecto${p.title ? ` “${p.title}”` : ""}`) +
-    `<p class="hint" style="margin-top:16px">Clica num elemento para ver os detalhes e as referências cruzadas. Usa «＋ Nota no desenho» para deixar uma nota num ponto do folio.</p>`
+    `<p class="hint" style="margin-top:16px">Clica num elemento para ver os detalhes e as referências cruzadas. Usa «＋ Nota no desenho» para deixar uma nota num ponto da folha.</p>`
   );
 }
 
@@ -933,6 +933,55 @@ try {
   $("#app").classList.toggle("hide-info", !!b.info);
 } catch { /* predefinição */ }
 syncBarButtons();
+
+// largura das barras: arrastar o separador (rato ou toque), setas no teclado, duplo clique repõe
+const WIDTHS_KEY = "qetview:widths";
+const WIDTH_DEFAULT = { side: 270, info: 330 };
+const WIDTH_MIN = 180;
+const widths = { ...WIDTH_DEFAULT };
+try { Object.assign(widths, JSON.parse(localStorage.getItem(WIDTHS_KEY) || "{}")); } catch { /* predefinição */ }
+
+function setWidth(which, px) {
+  const app = $("#app");
+  const other = wide() ? (app.classList.contains("hide-" + (which === "side" ? "info" : "side")) ? 0 : widths[which === "side" ? "info" : "side"]) : 0;
+  const max = Math.max(WIDTH_MIN, Math.min(640, app.clientWidth - other - 320)); // o desenho fica com pelo menos 320px
+  widths[which] = Math.round(Math.min(max, Math.max(WIDTH_MIN, px)));
+  app.style.setProperty(`--${which}-w`, widths[which] + "px");
+}
+const saveWidths = () => { try { localStorage.setItem(WIDTHS_KEY, JSON.stringify(widths)); } catch { /* sem armazenamento */ } };
+
+for (const which of ["side", "info"]) {
+  const grip = $(which === "side" ? "#rzSide" : "#rzInfo");
+  grip.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add("drag");
+    document.body.classList.add("resizing");
+  });
+  grip.addEventListener("pointermove", (e) => {
+    if (!grip.hasPointerCapture(e.pointerId)) return;
+    const r = $("#app").getBoundingClientRect();
+    setWidth(which, which === "side" ? e.clientX - r.left : r.right - e.clientX);
+  });
+  const end = (e) => {
+    if (!grip.hasPointerCapture(e.pointerId)) return;
+    grip.releasePointerCapture(e.pointerId);
+    grip.classList.remove("drag");
+    document.body.classList.remove("resizing");
+    saveWidths();
+  };
+  grip.addEventListener("pointerup", end);
+  grip.addEventListener("pointercancel", end);
+  grip.addEventListener("dblclick", () => { setWidth(which, WIDTH_DEFAULT[which]); saveWidths(); });
+  grip.addEventListener("keydown", (e) => {
+    const d = e.key === "ArrowLeft" ? -16 : e.key === "ArrowRight" ? 16 : 0;
+    if (!d) return;
+    e.preventDefault();
+    setWidth(which, widths[which] + (which === "side" ? d : -d));
+    saveWidths();
+  });
+  setWidth(which, widths[which]);
+}
 
 $("#optXref").addEventListener("change", () => S.folio && showFolio(S.folio.index, { keepView: true }));
 

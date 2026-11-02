@@ -1,4 +1,4 @@
-// Desenho de um folio QElectroTech em SVG (gerado como texto).
+// Desenho de uma folha QElectroTech em SVG (gerado como texto).
 import { kid, kids, nested, str, num, has, bool, gridOf, relatedOf, locationOf, terminalOf, GENERIC_FONT } from "./qet.js";
 
 const FALLBACK_FONT = "'Liberation Sans', Arial, Helvetica, sans-serif";
@@ -222,7 +222,7 @@ function hitRect(d) {
   return `<rect class="hitbox" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" fill="transparent" stroke="none"/>`;
 }
 
-/** Caixa aproximada do elemento no folio. */
+/** Caixa aproximada do elemento na folha. */
 export function elementBox(el) {
   const { x: bx, y: by, w, h } = localBox(el.def);
   const c = [[bx, by], [bx + w, by], [bx + w, by + h], [bx, by + h]].map(([x, y]) => [[x, y], [-y, x], [-x, -y], [y, -x]][el.ori]);
@@ -406,7 +406,7 @@ function imageSize(b64, mime) {
 }
 
 /**
- * Imagem do folio. No QET a posição é a do canto da imagem sem escala e a escala
+ * Imagem da folha. No QET a posição é a do canto da imagem sem escala e a escala
  * (e a rotação) são feitas em torno do centro dela.
  */
 function imageEl(n) {
@@ -563,7 +563,7 @@ function renderTemplate(project, folio, tpl, x0, y0, W) {
   return { svg: s, height: H };
 }
 
-/** Legenda simples, para folios cujo modelo não está embebido no projecto. */
+/** Legenda simples, para folhas cujo modelo não está embebido no projecto. */
 function simpleTitleBlock(project, folio, x0, y0, W) {
   const TBH = 50;
   const d = folio.node;
@@ -645,7 +645,7 @@ function xrefLabels(project, el, box) {
   return out;
 }
 
-// ---------- folio completo ----------
+// ---------- folha completa ----------
 
 export function renderFolio(project, folio, opts = {}) {
   defaultFamily = project.fontFamily;

@@ -32,7 +32,7 @@ const letters = (n) => {
   return s;
 };
 
-/** Geometria da grelha do folio (BorderTitleBlock). */
+/** Geometria da grelha da folha (BorderTitleBlock). */
 export function gridOf(d) {
   const cols = num(d, "cols", 17);
   const colW = num(d, "colsize", 60);
@@ -243,7 +243,7 @@ export function elementName(el, langs = ["pt", "en", "fr"]) {
   return el.key.split("/").pop().replace(/\.elmt$/, "");
 }
 
-/** Localização textual, p.ex. "3-C5" (folio-linha+coluna). */
+/** Localização textual, p.ex. "3-C5" (folha-linha+coluna). */
 export function locationOf(project, el) {
   const f = el.folio;
   if (!el.cell) return f.folioLabel;
