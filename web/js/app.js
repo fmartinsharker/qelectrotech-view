@@ -722,20 +722,67 @@ function download(name, text, type) {
 const baseName = () => (S.project.fileName || "projecto").replace(/\.[^.]+$/, "");
 
 $("#btnExportNotes").addEventListener("click", () => S.project && download(`${baseName()}.notas.json`, S.notes.export(), "application/json"));
+/** Notas agrupadas por folha (e as do projecto no início), prontas a escrever em Markdown ou texto. */
+function noteSections(onlyFolio) {
+  const p = S.project;
+  const sorted = [...S.notes.notes].sort((a, b) => (a.created || 0) - (b.created || 0));
+  const out = [];
+  const item = (n) => ({ label: noteTarget(n).label, text: n.text, meta: noteMeta(n) });
+  if (!onlyFolio) {
+    const general = sorted.filter((n) => n.kind === "project").map(item);
+    if (general.length) out.push({ heading: "Projecto", items: general });
+  }
+  for (const f of p.folios) {
+    if (onlyFolio && f !== onlyFolio) continue;
+    const mine = sorted.filter((n) => n.kind !== "project" && (n.kind === "folio" ? n.ref === f.id : n.kind === "element" ? p.byUuid.get(n.ref)?.folio === f : (n.folio || n.ref.split("|")[0]) === f.id));
+    if (mine.length) out.push({ heading: `Folha ${f.folioLabel} — ${f.title}`, items: mine.map(item) });
+  }
+  return out;
+}
+
+const notesMarkdown = (title, sections) =>
+  `# Notas — ${title}\n\n` + sections.map((s) => `## ${s.heading}\n\n` + s.items.map((i) => `- **${i.label}**: ${i.text.replace(/\n/g, "\n  ")}  \n  _${i.meta}_\n`).join("") + "\n").join("");
+
+const notesPlainText = (sections) =>
+  sections.map((s) => `${s.heading.toUpperCase()}\n` + s.items.map((i) => `• ${i.label}: ${i.text}\n  (${i.meta})\n`).join("")).join("\n");
+
 $("#btnExportMd").addEventListener("click", () => {
   if (!S.project) return;
-  const p = S.project;
-  let md = `# Notas — ${p.title || baseName()}\n\n`;
-  const sorted = [...S.notes.notes].sort((a, b) => (a.created || 0) - (b.created || 0));
-  for (const n of sorted.filter((x) => x.kind === "project")) md += `${n.text}\n\n`;
-  for (const f of p.folios) {
-    const mine = sorted.filter((n) => n.kind !== "project" && (n.kind === "folio" ? n.ref === f.id : n.kind === "element" ? p.byUuid.get(n.ref)?.folio === f : (n.folio || n.ref.split("|")[0]) === f.id));
-    if (!mine.length) continue;
-    md += `## Folha ${f.folioLabel} — ${f.title}\n\n`;
-    for (const n of mine) md += `- **${noteTarget(n).label}**: ${n.text.replace(/\n/g, "\n  ")}  \n  _${noteMeta(n)}_\n`;
-    md += "\n";
+  download(`${baseName()}.notas.md`, notesMarkdown(S.project.title || baseName(), noteSections(null)), "text/markdown");
+});
+
+/**
+ * Partilhar por email sem servidor: no tablet abre o menu de partilha do sistema com o ficheiro anexado;
+ * no computador abre o programa de email com o texto (limitado) e descarrega o ficheiro completo para anexar.
+ */
+$("#btnShareMail").addEventListener("click", async () => {
+  if (!S.project) return;
+  const onlyFolio = $("#shareScope").value === "folio" ? S.folio : null;
+  const sections = noteSections(onlyFolio);
+  if (!sections.length) { $("#status").textContent = onlyFolio ? "Esta folha não tem notas para partilhar." : "Ainda não há notas para partilhar."; return; }
+  const title = S.project.title || baseName();
+  const subject = `Notas — ${title}${onlyFolio ? ` — folha ${onlyFolio.folioLabel}` : ""}`;
+  const header = `Projecto: ${title}\nPartilhado por: ${getUser() || "—"}\nData: ${new Date().toLocaleString("pt-PT")}\n\n`;
+  const fileName = `${baseName()}.notas${onlyFolio ? `-folha-${onlyFolio.folioLabel}` : ""}.md`;
+  const md = notesMarkdown(title, sections);
+  const file = new File([md], fileName, { type: "text/markdown" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ title: subject, text: header, files: [file] });
+      return;
+    } catch (e) {
+      if (e.name === "AbortError") return; // a pessoa fechou o menu
+    }
   }
-  download(`${baseName()}.notas.md`, md, "text/markdown");
+  const MAX = 1500; // os programas de email cortam endereços mailto: muito longos
+  let body = header + notesPlainText(sections);
+  if (body.length > MAX) body = body.slice(0, MAX) + "\n\n[…] A lista completa está no ficheiro anexo.";
+  download(fileName, md, "text/markdown");
+  const a = Object.assign(document.createElement("a"), { href: `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  $("#status").textContent = `Ficheiro ${fileName} descarregado: anexa-o ao email.`;
 });
 $("#btnImportNotes").addEventListener("click", () => S.project && $("#notesFile").click());
 $("#notesFile").addEventListener("change", async (e) => {

@@ -254,3 +254,4 @@ body.dragging::after {
 @media (max-width: 960px) { .user-chip { display: none; } }
 [hidden] { display: none !important; }
 .logout { background: none; border: 0; padding: 2px 4px; text-decoration: underline; cursor: pointer; }
+.row.share select { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }

@@ -5,6 +5,7 @@ Página que abre ficheiros `.qet` no próprio browser — o ficheiro nunca é en
 - Desenha as folhas (elementos, condutores, texto, formas, imagens, moldura e a legenda do projecto).
 - **Referências cruzadas**: mestre ↔ contactos, reports de folha; clicar salta para o elemento (mesmo noutra folha), com botão «Voltar».
 - **Notas** por projecto, folha, elemento, condutor ou ponto do desenho, com **autor e data** (criação e última edição), partilhadas em tempo real. Exportáveis em JSON e Markdown.
+- **Partilhar notas por email** (separador Notas): no tablet abre o menu de partilha com um ficheiro anexado; no computador abre o programa de email com o texto e descarrega o ficheiro completo para anexar. Não envia nada por si: é a pessoa que carrega em «enviar».
 - Pesquisa por etiqueta, nome, informações, nº de fio, folha e notas.
 - Pensado também para tablet: ☰ (folhas, pesquisa, notas), ⓘ (detalhes) e ⤢ (ecrã inteiro) escondem as barras. Atalhos `B`, `I`, `F`; `Esc` mostra as barras.
 - Ligações directas: `?file=url/do/ficheiro.qet#f=3&e=<uuid>`.

@@ -52,6 +52,13 @@
         <button id="btnImportNotes" title="Juntar notas de um ficheiro JSON exportado">Importar</button>
         <input type="file" id="notesFile" accept=".json,application/json" hidden>
       </div>
+      <div class="row share">
+        <select id="shareScope" aria-label="Que notas partilhar">
+          <option value="all">Todas as notas do projecto</option>
+          <option value="folio">Só a folha aberta</option>
+        </select>
+        <button id="btnShareMail" title="Abre o email com as notas (no tablet, o menu de partilha)">✉ Partilhar por email</button>
+      </div>
       <p id="notesWarn" class="hint"></p>
       <ul id="noteList" class="list"></ul>
     </section>
