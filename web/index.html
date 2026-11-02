@@ -62,7 +62,7 @@
           <option value="all">Todas as notas do projecto</option>
           <option value="folio">Só a folha aberta</option>
         </select>
-        <button id="btnShareMail" title="Abre o email com as notas (no tablet, o menu de partilha)">✉ Partilhar por email</button>
+        <button id="btnShareMail" title="Envia as notas por email, em texto (no tablet, abre o menu de partilha)">✉ Partilhar por email</button>
       </div>
       <p id="notesWarn" class="hint"></p>
       <ul id="noteList" class="list"></ul>
@@ -73,7 +73,8 @@
     <div id="stage" tabindex="0" aria-label="Desenho da folha"></div>
     <div class="toolbar">
       <button id="prev" title="Folha anterior (←)" aria-label="Folha anterior">‹</button>
-      <span id="folioPos" class="folio-pos">–</span>
+      <button id="folioPos" class="folio-pos" title="Ir para a folha… (G)" aria-label="Ir para a folha">–</button>
+      <input id="folioGo" class="folio-go" type="text" inputmode="numeric" autocomplete="off" hidden aria-label="Número da folha" placeholder="Folha">
       <button id="next" title="Folha seguinte (→)" aria-label="Folha seguinte">›</button>
       <span class="sep"></span>
       <button id="zoomOut" title="Reduzir (−)" aria-label="Reduzir">−</button>
@@ -89,7 +90,7 @@
     </div>
   </section>
 
-  <aside id="info"><button class="icon pop-close" id="popClose" title="Fechar (Esc)" aria-label="Fechar">×</button><div id="infoBody"></div></aside>
+  <aside id="info"><div class="pop-head" id="popHead" title="Arrastar para mover (duplo toque repõe)"><span class="pop-grip" aria-hidden="true">⠿</span><button class="icon pop-close" id="popClose" title="Fechar (Esc)" aria-label="Fechar">×</button></div><div id="infoBody"></div></aside>
 
   <div class="resizer" id="rzSide" role="separator" aria-orientation="vertical" aria-label="Largura da barra da esquerda" tabindex="0" title="Arrasta para redimensionar (duplo clique repõe)"></div>
 
@@ -115,7 +116,7 @@
     <img src="icons/icon.svg" alt="" class="splash-logo">
     <h1 id="splashTitle">QElectroTech View</h1>
     <p class="splash-tag">Consulta de esquemas QElectroTech</p>
-    <p class="splash-foot"><span id="splashVer"></span>Formato e símbolos © equipa QElectroTech (GPL v2)</p>
+    <p class="splash-foot">Formato e símbolos © equipa QElectroTech (GPL v2)</p>
     <p class="splash-hint">Toca ou carrega numa tecla para continuar</p>
   </div>
 </div>

@@ -55,5 +55,20 @@ service cloud.firestore {
       // só o administrador apaga notas (os outros podem criar e editar, nunca apagar)
       allow delete: if allowed() && email() == 'francisco.martins@harkersolutions.com';
     }
+
+    // histórico de edições: uma linha por edição (quem e quando), só se acrescenta, nunca se altera
+    match /projects/{project}/edits/{edit} {
+      allow read: if allowed();
+
+      allow create: if allowed()
+        && request.resource.data.keys().hasOnly(['noteId', 'by', 'byEmail', 'at'])
+        && request.resource.data.noteId is string && request.resource.data.noteId.size() > 0 && request.resource.data.noteId.size() <= 200
+        && request.resource.data.by is string && request.resource.data.by.size() <= 120
+        && request.resource.data.byEmail == email()
+        && request.resource.data.at == request.time;
+
+      allow update: if false;
+      allow delete: if allowed() && email() == 'francisco.martins@harkersolutions.com';
+    }
   }
 }

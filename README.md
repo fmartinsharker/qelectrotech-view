@@ -5,7 +5,7 @@ Página que abre ficheiros `.qet` no próprio browser — o ficheiro nunca é en
 - Desenha as folhas (elementos, condutores, texto, formas, imagens, moldura e a legenda do projecto).
 - **Referências cruzadas**: mestre ↔ contactos, reports de folha; clicar salta para o elemento (mesmo noutra folha), com botão «Voltar».
 - **Notas** por projecto, folha, elemento, condutor ou ponto do desenho, com **autor e data** (criação e última edição), partilhadas em tempo real. Exportáveis em JSON e Markdown.
-- **Partilhar notas por email** (separador Notas): no tablet abre o menu de partilha com um ficheiro anexado; no computador abre o programa de email com o texto e descarrega o ficheiro completo para anexar. Não envia nada por si: é a pessoa que carrega em «enviar».
+- **Partilhar notas por email** (separador Notas e botão ✉ do cabeçalho): sem guardar ficheiros, as notas vão como texto no corpo do email. No tablet abre o menu de partilha do sistema (Gmail, Outlook…); no computador abre o programa de email, e se o texto for longo demais copia o texto completo para colares. Não envia nada por si: é a pessoa que carrega em «enviar».
 - Pesquisa por etiqueta, nome, informações, nº de fio, folha e notas.
 - Pensado também para tablet: ☰ (folhas, pesquisa, notas), ⓘ (detalhes) e ⤢ (ecrã inteiro) escondem as barras. Atalhos `B`, `I`, `F`; `Esc` mostra as barras.
 - Ligações directas: `?file=url/do/ficheiro.qet#f=3&e=<uuid>`.
@@ -38,9 +38,12 @@ e abrir `http://localhost:8766/?emulator&as=ana` (ou `as=rui`, `as=francisco`). 
 
 Com o Firebase configurado, a página exige login com a conta Microsoft 365 e as notas passam a ser guardadas no Firestore, visíveis a toda a equipa **em tempo real**. Sem configuração (ou fora do Firebase) continua o modo local. Para testar sem login (p.ex. num tablet), abre o endereço com `?local`: não há servidor nem partilha, as notas ficam só nesse browser.
 
+- Para saltar para uma folha: clicar em «013 / 69» (ou tecla **G**), escrever o número e Enter.
+- Para criar uma nota num ponto do desenho: **pressão longa (1 s)** nesse ponto (toque ou rato parado), ou o botão «＋ Nota no desenho» e um clique. Arrastar ou fazer zoom com dois dedos cancela a pressão.
 - O **email** de quem escreve vem do login e as **datas** são as do servidor: as regras (`firestore.rules`) recusam notas com outro autor ou datas falsas, e impedem mudar quem criou uma nota. O **nome** mostrado é o da conta e serve só para apresentação; o que identifica é o email.
 - As notas ligam-se ao **título do projecto** + UUID dos elementos: todas as revisões do mesmo projecto partilham notas.
 - Duas pessoas a editar a **mesma** nota ao mesmo tempo: ganha a última a gravar.
+- Por baixo de cada nota há uma linha por acontecimento: «Criada por …» e uma «Editada por …» por cada edição (gravações seguidas da mesma pessoa a escrever contam como uma). O histórico fica na colecção `projects/*/edits`, que só se acrescenta (regras em `firestore.rules`); notas anteriores a esta função mostram só a última edição.
 - Qualquer pessoa da empresa pode criar e editar notas; só o administrador (`notesAdmin` em `web/js/firebase-config.js` e a regra de `delete` em `firestore.rules`) pode apagá-las.
 
 ### Custo: 0 €, sem cartão

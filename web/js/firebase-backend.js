@@ -5,6 +5,7 @@ import { b64url } from "./notes.js";
 
 const SDK = "13.0.0";
 const CDN = `https://www.gstatic.com/firebasejs/${SDK}`;
+const EDIT_GAP_MS = 2 * 60 * 1000;
 const EMULATORS = { auth: "http://127.0.0.1:9099", firestoreHost: "127.0.0.1", firestorePort: 8080 };
 
 /** Documento do Firestore -> nota usada pela página (datas em milissegundos). */
@@ -28,6 +29,27 @@ class FirestoreNotes {
     this.db = db;
     this.user = user;
     this.col = fs.collection(db, "projects", b64url(projectKey), "notes");
+    this.editsCol = fs.collection(db, "projects", b64url(projectKey), "edits");
+    this.lastEdit = new Map(); // id da nota -> quando esta sessão registou a última edição
+  }
+
+  /** Histórico de edições do projecto: Map(id da nota -> [{ by, at }] por ordem). Falhas aqui não afectam as notas. */
+  subscribeEdits(onEdits) {
+    return this.fs.onSnapshot(
+      this.editsCol,
+      (snap) => {
+        const byNote = new Map();
+        for (const d of snap.docs) {
+          const e = d.data({ serverTimestamps: "estimate" });
+          const at = e.at && typeof e.at.toMillis === "function" ? e.at.toMillis() : 0;
+          if (!byNote.has(e.noteId)) byNote.set(e.noteId, []);
+          byNote.get(e.noteId).push({ by: e.by, byEmail: e.byEmail, at });
+        }
+        for (const l of byNote.values()) l.sort((a, b) => a.at - b.at);
+        onEdits(byNote);
+      },
+      () => {},
+    );
   }
 
   subscribe(onNotes, onError) {
@@ -49,6 +71,11 @@ class FirestoreNotes {
         const snap = await tx.get(ref);
         if (snap.exists()) {
           tx.update(ref, { text: n.text, updated: serverTimestamp(), updatedBy: name, updatedByEmail: email });
+          // uma linha no histórico por edição; várias gravações seguidas (a escrever) contam como uma só
+          if (!(Date.now() - (this.lastEdit.get(n.id) || 0) < EDIT_GAP_MS)) {
+            tx.set(doc(this.editsCol), { noteId: n.id, by: name, byEmail: email, at: serverTimestamp() });
+            this.lastEdit.set(n.id, Date.now());
+          }
         } else {
           const d = { kind: n.kind, ref: n.ref, text: n.text, created: serverTimestamp(), createdBy: name, createdByEmail: email, updated: serverTimestamp(), updatedBy: name, updatedByEmail: email };
           if (n.folio) d.folio = n.folio;

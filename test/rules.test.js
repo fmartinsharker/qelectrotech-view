@@ -90,6 +90,22 @@ test('apagar: o administrador também cria e edita como os outros', async () => 
   await assertSucceeds(deleteDoc(ref(francisco())));
 });
 
+const edit = (db, id = 'e1') => doc(db, 'projects', P, 'edits', id);
+const edicao = (email = 'rui.costa@harkersolutions.com', extra = {}) => ({ noteId: 'folio_MQ', by: 'Rui Costa', byEmail: email, at: serverTimestamp(), ...extra });
+
+test('histórico: regista-se a edição com o meu email e a data do servidor, só se acrescenta', async () => {
+  await assertSucceeds(setDoc(edit(rui()), edicao()));
+  await assertSucceeds(getDoc(edit(ana()))); // outra pessoa da empresa lê
+  await assertFails(setDoc(edit(rui(), 'e2'), edicao('ana.silva@harkersolutions.com'))); // em nome de outra pessoa
+  await assertFails(setDoc(edit(rui(), 'e3'), edicao(undefined, { at: new Date('2020-01-01') }))); // data falsa
+  await assertFails(setDoc(edit(rui(), 'e4'), edicao(undefined, { extra: 1 }))); // campo desconhecido
+  await assertFails(updateDoc(edit(rui()), { by: 'Outro' })); // não se altera
+  await assertFails(setDoc(edit(fora(), 'e5'), edicao('x@outra-empresa.com')));
+  await assertFails(getDoc(edit(anon())));
+  await assertFails(deleteDoc(edit(rui()))); // só o administrador apaga
+  await assertSucceeds(deleteDoc(edit(francisco())));
+});
+
 test('fora de projects/*/notes não há acesso', async () => {
   await assertFails(setDoc(doc(ana(), 'outra', 'coisa'), { a: 1 }));
   await assertFails(getDoc(doc(ana(), 'outra', 'coisa')));

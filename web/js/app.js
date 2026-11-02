@@ -263,20 +263,53 @@ stage.addEventListener("wheel", (e) => {
 
 const pointers = new Map();
 let drag = null;
+
+// Pressão longa (1 s) num ponto do desenho: cria uma nota nesse ponto.
+const LONG_PRESS_MS = 1000;
+const MOVE_SLOP = 12; // px
+let pressTimer = 0;
+const ring = document.createElement("div");
+ring.id = "pressRing";
+document.body.append(ring);
+function cancelPress() {
+  clearTimeout(pressTimer);
+  pressTimer = 0;
+  ring.classList.remove("on");
+}
+function startPress(x, y) {
+  cancelPress();
+  ring.style.left = x + "px";
+  ring.style.top = y + "px";
+  ring.classList.remove("on");
+  void ring.offsetWidth; // reinicia a animação
+  ring.classList.add("on");
+  pressTimer = setTimeout(() => {
+    cancelPress();
+    if (!drag || drag.multi || drag.far || !S.folio) return;
+    drag.long = true;
+    try { navigator.vibrate?.(25); } catch { /* sem vibração */ }
+    createPinAt(x, y);
+  }, LONG_PRESS_MS);
+}
+
 stage.addEventListener("pointerdown", (e) => {
   if (!S.svg || (e.button && e.button !== 0)) return;
   stage.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  drag = { moved: 0, x: e.clientX, y: e.clientY, pinch: pointers.size > 1 ? pinchDist() : 0, multi: pointers.size > 1 };
+  drag = { far: false, x: e.clientX, y: e.clientY, pinch: pointers.size > 1 ? pinchDist() : 0, multi: pointers.size > 1 };
   stage.classList.add("drag");
   stage.focus({ preventScroll: true });
+  if (drag.multi || S.pin) cancelPress();
+  else startPress(e.clientX, e.clientY);
 });
+stage.addEventListener("contextmenu", (e) => e.preventDefault());
 stage.addEventListener("pointermove", (e) => {
   if (!pointers.has(e.pointerId) || !drag) return;
   const prev = pointers.get(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size >= 2) {
     drag.multi = true;
+    cancelPress();
     const d = pinchDist();
     if (drag.pinch) {
       const m = pinchMid();
@@ -287,17 +320,22 @@ stage.addEventListener("pointermove", (e) => {
   }
   const r = stage.getBoundingClientRect();
   const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
-  drag.moved += Math.abs(dx) + Math.abs(dy);
-  if (drag.moved < 5) return;
+  // o dedo nunca fica parado: só conta como arrastar (e deixa de poder ser toque ou pressão longa) passados alguns pixels do ponto inicial
+  if (!drag.far) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < MOVE_SLOP) return;
+    drag.far = true;
+    cancelPress();
+  }
   setView({ x: S.vb.x - (dx * S.vb.w) / r.width, y: S.vb.y - (dy * S.vb.w) / r.width, w: S.vb.w });
 });
 const pinchDist = () => { const [a, b] = [...pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
 const pinchMid = () => { const [a, b] = [...pointers.values()]; return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
 const endPointer = (e) => {
   pointers.delete(e.pointerId);
+  cancelPress();
   if (pointers.size) return;
   stage.classList.remove("drag");
-  if (drag && !drag.multi && drag.moved < 5 && e.type === "pointerup") onStageClick(e);
+  if (drag && !drag.multi && !drag.long && !drag.far && e.type === "pointerup") onStageClick(e);
   drag = null;
 };
 stage.addEventListener("pointerup", endPointer);
@@ -313,30 +351,39 @@ new ResizeObserver(() => {
 
 // ---------------------------------------------------------------- cliques no desenho
 
+function createPinAt(cx, cy) {
+  const p = toScene(cx, cy);
+  ensureUser();
+  const n = S.notes.addPin(S.folio.id, p.x, p.y);
+  setPinMode(false);
+  select({ type: "pin", id: n.id });
+  $("#infoBody textarea")?.focus();
+}
+
 function onStageClick(e) {
   const t = document.elementFromPoint(e.clientX, e.clientY);
-  if (S.pin) {
-    const p = toScene(e.clientX, e.clientY);
-    ensureUser();
-    const n = S.notes.addPin(S.folio.id, p.x, p.y);
-    setPinMode(false);
-    select({ type: "pin", id: n.id });
-    $("#infoBody textarea")?.focus();
-    return;
-  }
+  if (S.pin) return createPinAt(e.clientX, e.clientY);
   const el = t && t.closest ? t : null;
   const xr = el?.closest(".xr");
   if (xr) return go(xr.dataset.go);
   const pin = el?.closest(".pin");
   if (pin) return select({ type: "pin", id: pin.dataset.id });
   const mark = el?.closest(".mark");
-  if (mark) return select({ type: "element", id: mark.dataset.u });
+  if (mark) { select({ type: "element", id: mark.dataset.u }); return openInfo(); }
   const g = el?.closest(".el");
   if (g?.dataset.go) return go(g.dataset.go); // report: salta para o par
-  if (g) return select({ type: "element", id: g.dataset.u });
+  if (g) return selectOpeningNote({ type: "element", id: g.dataset.u });
   const cd = el?.closest(".cd");
-  if (cd) return select({ type: "conductor", id: +cd.dataset.i });
+  if (cd) return selectOpeningNote({ type: "conductor", id: +cd.dataset.i });
   select(null);
+}
+
+/** Selecciona; se o elemento ou condutor já tem nota, abre o pop-up para a mostrar. */
+function selectOpeningNote(sel) {
+  select(sel);
+  const c = sel.type === "conductor" ? S.rendered.conductors[sel.id] : null;
+  const n = sel.type === "element" ? S.notes.find("element", sel.id) : c && S.notes.find("conductor", `${S.folio.id}|${c.from}|${c.to}|${c.num}`);
+  if (n && n.text.trim()) openInfo();
 }
 
 // ---------------------------------------------------------------- selecção e realce
@@ -366,7 +413,8 @@ function domBox(uuid) {
 const rectSvg = (b, cls, pad = 3) => `<rect class="${cls}" x="${b.x - pad}" y="${b.y - pad}" width="${b.w + 2 * pad}" height="${b.h + 2 * pad}" rx="3"/>`;
 
 function drawSelection() {
-  document.body.classList.toggle("has-sel", !!S.sel);
+  // o pop-up só abre sozinho para notas do desenho; para o resto abre-se com o botão ⓘ
+  document.body.classList.toggle("has-sel", S.sel?.type === "pin");
   const hl = S.svg?.querySelector(".hl");
   if (!hl) return;
   let h = "";
@@ -438,6 +486,35 @@ function go(uuid, { push = true } = {}) {
   flash(box);
 }
 
+/** Clicar em «013 / 69» deixa escrever o número da folha e saltar para ela. */
+const folioGo = $("#folioGo");
+function openFolioGo() {
+  if (!S.project) return;
+  $("#folioPos").hidden = true;
+  folioGo.hidden = false;
+  folioGo.value = "";
+  folioGo.focus();
+}
+function closeFolioGo(go) {
+  if (folioGo.hidden) return;
+  const v = folioGo.value.trim();
+  folioGo.hidden = true;
+  $("#folioPos").hidden = false;
+  if (!go || !v) return;
+  const p = S.project;
+  const n = parseInt(v, 10);
+  const f = p.folios.find((x) => x.folioLabel === v) || p.folios.find((x) => parseInt(x.folioLabel, 10) === n) || p.folios[n - 1];
+  if (f) goFolio(f.index);
+  else $("#status").textContent = `Não existe a folha ${v} (há ${p.total}).`;
+}
+$("#folioPos").addEventListener("click", openFolioGo);
+folioGo.addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Enter") { e.preventDefault(); closeFolioGo(true); }
+  else if (e.key === "Escape") { e.preventDefault(); closeFolioGo(false); }
+});
+folioGo.addEventListener("blur", () => closeFolioGo(false));
+
 function goFolio(index, { push = true } = {}) {
   if (push) pushHistory();
   S.sel = null;
@@ -467,13 +544,28 @@ function xrefItem(o, extra = "") {
 const fmtWhen = (t) => new Date(t).toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" });
 
 /** "Criada por Ana em 02/11/2026, 10:15 · editada por Rui em …" */
-function noteMeta(n) {
-  let s = `Criada${n.createdBy ? ` por ${n.createdBy}` : ""} em ${fmtWhen(n.created)}`;
-  if (n.updated && (n.updated - n.created > 60000 || (n.updatedBy || "") !== (n.createdBy || "")))
-    s += ` · editada${n.updatedBy ? ` por ${n.updatedBy}` : ""} em ${fmtWhen(n.updated)}`;
-  return s;
-}
+const EDIT_MERGE_MS = 5 * 60 * 1000;
 
+/** Uma linha por acontecimento: «Criada por …» e depois cada edição («Editada por …»). */
+function noteLines(n) {
+  const lines = [`Criada${n.createdBy ? ` por ${n.createdBy}` : ""} em ${fmtWhen(n.created)}`];
+  const edits = [];
+  for (const h of S.notes.historyOf(n)) {
+    if (!edits.length && h.by === n.createdBy && h.at - (n.created || 0) < 60000) continue; // a escrever logo ao criar
+    const last = edits[edits.length - 1];
+    if (last && last.by === h.by && h.at - last.at < EDIT_MERGE_MS) last.at = h.at;
+    else edits.push({ by: h.by, at: h.at });
+  }
+  if (!edits.length && n.updated && (n.updated - n.created > 60000 || (n.updatedBy || "") !== (n.createdBy || ""))) edits.push({ by: n.updatedBy, at: n.updated }); // notas sem histórico
+  else if (edits.length) {
+    const last = edits[edits.length - 1];
+    if (last.by === n.updatedBy && n.updated > last.at) last.at = n.updated;
+  }
+  for (const e of edits) lines.push(`Editada${e.by ? ` por ${e.by}` : ""} em ${fmtWhen(e.at)}`);
+  return lines;
+}
+const noteMeta = (n) => noteLines(n).join(" · ");
+const metaHtml = (n) => noteLines(n).map((l) => `<div>${esc(l)}</div>`).join("");
 /** Pede o nome uma vez, quando alguém vai escrever a primeira nota. */
 function ensureUser() {
   let u = getUser();
@@ -487,7 +579,7 @@ function ensureUser() {
 
 function noteEditor(kind, ref, caption, extra = {}) {
   const n = S.notes.find(kind, ref) || S.notes.byId(ref);
-  return `<div class="note-sec"><label>${esc(caption)}</label><div class="note-box"><textarea class="note-ta" data-kind="${kind}" data-ref="${esc(ref)}" data-extra="${esc(JSON.stringify(extra))}" placeholder="Escreve uma nota…" aria-label="${esc(caption)}">${esc(n?.text || "")}</textarea>${n?.created ? `<div class="meta"><span>${esc(noteMeta(n))}</span></div>` : ""}</div></div>`;
+  return `<div class="note-sec"><label>${esc(caption)}</label><div class="note-box"><textarea class="note-ta" data-kind="${kind}" data-ref="${esc(ref)}" data-extra="${esc(JSON.stringify(extra))}" placeholder="Escreve uma nota…" aria-label="${esc(caption)}">${esc(n?.text || "")}</textarea>${n?.created ? `<div class="meta">${metaHtml(n)}</div>` : ""}</div></div>`;
 }
 
 function renderInfo() {
@@ -573,9 +665,7 @@ function pinInfo(id) {
   return (
     `<h2>Nota ${k} no desenho</h2><p class="sub">Folha ${esc(S.folio.folioLabel)} · posição ${n.x}, ${n.y}</p>` +
     noteEditor("pin", id, "Texto da nota") +
-    (S.notes.canDelete()
-      ? `<p><button id="delPin">Apagar esta nota</button></p>`
-      : `<p class="hint">Só o administrador pode apagar notas.</p>`)
+    (S.notes.canDelete() ? `<p><button id="delPin">Apagar esta nota</button></p>` : "")
   );
 }
 
@@ -590,7 +680,7 @@ $("#infoBody").addEventListener("input", (e) => {
   const box = ta.closest(".note-box");
   let meta = box.querySelector(".meta");
   if (n && !meta) { meta = document.createElement("div"); meta.className = "meta"; box.append(meta); }
-  if (meta) meta.innerHTML = n ? `<span>${esc(noteMeta(n))}</span>` : "";
+  if (meta) meta.innerHTML = n ? metaHtml(n) : "";
 });
 $("#infoBody").addEventListener("focusin", (e) => { if (e.target.closest(".note-ta")) ensureUser(); });
 $("#userName").value = getUser();
@@ -707,15 +797,17 @@ $("#noteList").addEventListener("click", (e) => {
   if (!li) return;
   const n = S.notes.byId(li.dataset.note);
   if (!n) return;
-  if (n.kind === "project" || n.kind === "folio") {
-    noteTarget(n).go();
-    renderInfo();
-  } else noteTarget(n).go();
+  noteTarget(n).go();
+  renderInfo();
+  openInfo();
   $("#app").classList.remove("show-side");
 });
 
+const BOM = "\uFEFF"; // marca UTF-8: sem ela alguns programas lêem os acentos como Latin-1
+
 function download(name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+  const isText = type.startsWith("text/");
+  const url = URL.createObjectURL(new Blob([isText ? BOM + text : text], { type: isText ? `${type};charset=utf-8` : type }));
   const a = Object.assign(document.createElement("a"), { href: url, download: name });
   document.body.append(a);
   a.click();
@@ -756,9 +848,12 @@ $("#btnExportMd").addEventListener("click", () => {
 });
 
 /**
- * Partilhar por email sem servidor: no tablet abre o menu de partilha do sistema com o ficheiro anexado;
- * no computador abre o programa de email com o texto (limitado) e descarrega o ficheiro completo para anexar.
+ * Partilhar por email sem guardar nenhum ficheiro: as notas vão como texto no corpo da mensagem.
+ * No tablet/telemóvel abre o menu de partilha do sistema (Gmail, Outlook…); no computador abre o programa
+ * de email. Se o texto for demasiado longo para um endereço mailto:, copia o texto completo para colar.
  */
+const MAILTO_MAX = 1800; // os programas de email cortam endereços mailto: muito longos (conta o texto já codificado)
+
 $("#btnShareMail").addEventListener("click", async () => {
   if (!S.project) return;
   const onlyFolio = $("#shareScope").value === "folio" ? S.folio : null;
@@ -767,26 +862,27 @@ $("#btnShareMail").addEventListener("click", async () => {
   const title = S.project.title || baseName();
   const subject = `Notas — ${title}${onlyFolio ? ` — folha ${onlyFolio.folioLabel}` : ""}`;
   const header = `Projecto: ${title}\nPartilhado por: ${getUser() || "—"}\nData: ${new Date().toLocaleString("pt-PT")}\n\n`;
-  const fileName = `${baseName()}.notas${onlyFolio ? `-folha-${onlyFolio.folioLabel}` : ""}.md`;
-  const md = notesMarkdown(title, sections);
-  const file = new File([md], fileName, { type: "text/markdown" });
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+  const full = header + notesPlainText(sections);
+  const touch = matchMedia("(pointer: coarse)").matches;
+  if (touch && navigator.share) {
     try {
-      await navigator.share({ title: subject, text: header, files: [file] });
+      await navigator.share({ title: subject, text: full });
       return;
     } catch (e) {
       if (e.name === "AbortError") return; // a pessoa fechou o menu
     }
   }
-  const MAX = 1500; // os programas de email cortam endereços mailto: muito longos
-  let body = header + notesPlainText(sections);
-  if (body.length > MAX) body = body.slice(0, MAX) + "\n\n[…] A lista completa está no ficheiro anexo.";
-  download(fileName, md, "text/markdown");
-  const a = Object.assign(document.createElement("a"), { href: `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  $("#status").textContent = `Ficheiro ${fileName} descarregado: anexa-o ao email.`;
+  const mailto = (body) => `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  let body = full;
+  let note = "";
+  if (mailto(body).length > MAILTO_MAX) {
+    const marker = "\n\n[…] Texto completo copiado: cola-o aqui.";
+    while (body.length > 0 && mailto(body + marker).length > MAILTO_MAX) body = body.slice(0, Math.max(0, body.length - Math.max(20, Math.ceil(body.length * 0.05))));
+    body += marker;
+    try { await navigator.clipboard.writeText(full); note = "Texto completo copiado: cola-o no email."; } catch { note = "O texto era demasiado longo e foi cortado no email."; }
+  }
+  location.href = mailto(body);
+  $("#status").textContent = note;
 });
 $("#btnImportNotes").addEventListener("click", () => S.project && $("#notesFile").click());
 $("#notesFile").addEventListener("change", async (e) => {
@@ -848,7 +944,7 @@ function runSearch() {
 $("#searchResults").addEventListener("click", (e) => {
   const li = e.target.closest("li");
   if (!li) return;
-  if (li.dataset.note) { noteTarget(S.notes.byId(li.dataset.note)).go(); }
+  if (li.dataset.note) { noteTarget(S.notes.byId(li.dataset.note)).go(); openInfo(); }
   else {
     const r = $("#searchResults")._hits[+li.dataset.hit];
     if (r.uuid) go(r.uuid);
@@ -904,7 +1000,8 @@ const BARS_KEY = "qetview:bars";
 function syncBarButtons() {
   const app = $("#app");
   $("#btnSide").setAttribute("aria-pressed", wide() ? !app.classList.contains("hide-side") : app.classList.contains("show-side"));
-  $("#btnInfo").setAttribute("aria-pressed", document.body.classList.contains("has-sel") || app.classList.contains("show-info"));
+  $("#btnInfo").setAttribute("aria-pressed", infoOpen());
+  if (infoOpen()) placeInfo();
 }
 
 function toggleBar() {
@@ -918,17 +1015,58 @@ function toggleBar() {
   syncBarButtons();
 }
 
-/** Pop-up com os detalhes e as notas: abre ao seleccionar algo ou aqui (detalhes da folha). */
+/** Pop-up com os detalhes e as notas: fechado por defeito; abre com ⓘ ou ao criar/tocar numa nota do desenho. */
 const infoOpen = () => document.body.classList.contains("has-sel") || $("#app").classList.contains("show-info");
 function closeInfo() {
   select(null, { open: false });
   $("#app").classList.remove("show-info");
   syncBarButtons();
 }
-function toggleInfo() {
-  if (infoOpen()) return closeInfo();
+function openInfo() {
   $("#app").classList.add("show-info");
   syncBarButtons();
+}
+function toggleInfo() {
+  if (infoOpen()) return closeInfo();
+  openInfo();
+}
+
+// o pop-up pode ser arrastado pela barra de cima; a posição fica guardada (duplo toque na barra repõe)
+const INFO_POS_KEY = "qetview:infopos";
+const infoEl = $("#info");
+function placeInfo() {
+  let pos = null;
+  try { pos = JSON.parse(localStorage.getItem(INFO_POS_KEY)); } catch { /* sem armazenamento */ }
+  if (!pos) { infoEl.style.left = infoEl.style.top = ""; infoEl.style.right = ""; return; }
+  const r = infoEl.getBoundingClientRect();
+  const w = r.width || 380;
+  infoEl.style.right = "auto";
+  infoEl.style.left = Math.min(Math.max(0, pos.x), Math.max(0, innerWidth - w)) + "px";
+  infoEl.style.top = Math.min(Math.max(0, pos.y), Math.max(0, innerHeight - 48)) + "px";
+}
+{
+  const head = $("#popHead");
+  let d = null;
+  head.addEventListener("pointerdown", (e) => {
+    if (e.target.closest("button") || (e.button && e.button !== 0)) return;
+    const r = infoEl.getBoundingClientRect();
+    d = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    head.setPointerCapture(e.pointerId);
+    head.classList.add("drag");
+  });
+  head.addEventListener("pointermove", (e) => {
+    if (!d) return;
+    try { localStorage.setItem(INFO_POS_KEY, JSON.stringify({ x: e.clientX - d.dx, y: e.clientY - d.dy })); } catch { /* sem armazenamento */ }
+    placeInfo();
+  });
+  const end = () => { d = null; head.classList.remove("drag"); };
+  head.addEventListener("pointerup", end);
+  head.addEventListener("pointercancel", end);
+  head.addEventListener("dblclick", () => {
+    try { localStorage.removeItem(INFO_POS_KEY); } catch { /* sem armazenamento */ }
+    placeInfo();
+  });
+  addEventListener("resize", placeInfo);
 }
 
 function setFocus(on) {
@@ -1038,6 +1176,7 @@ window.addEventListener("keydown", (e) => {
     case "f": case "F": setFocus(!document.body.classList.contains("focus")); break;
     case "b": case "B": toggleBar("side"); break;
     case "i": case "I": toggleInfo(); break;
+    case "g": case "G": e.preventDefault(); openFolioGo(); break;
     case "/": e.preventDefault(); setTab("search"); $("#app").classList.add("show-side"); break;
     default: return;
   }
@@ -1069,9 +1208,6 @@ updateHistButtons();
 // ---------------------------------------------------------------- ecrã de abertura / sobre
 
 const splash = $("#splash");
-// data da publicação (a do ficheiro no servidor): confirma que versão da página está a ser usada
-const published = new Date(document.lastModified);
-if (!isNaN(published)) $("#splashVer").textContent = `Publicado em ${published.toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })} · `;
 function hideSplash() {
   splash.classList.add("out");
   splash.setAttribute("aria-hidden", "true");

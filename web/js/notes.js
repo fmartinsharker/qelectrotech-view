@@ -33,6 +33,7 @@ export const noteId = (kind, ref) => `${kind}_${b64url(ref)}`;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
 
 const FLUSH_MS = 700;
+const EDIT_GAP_MS = 2 * 60 * 1000;
 
 export class NoteStore {
   /** key: chave local (localStorage); remote: backend de notas partilhadas (ver firebase-backend.js) ou null */
@@ -47,6 +48,7 @@ export class NoteStore {
     this.lastSync = 0;
     this.dirty = new Map(); // id -> versão da última edição por enviar
     this.deleted = new Set();
+    this.edits = new Map(); // modo partilhado: id da nota -> [{ by, at }] (vem do servidor)
     this.ver = 0;
     this.timer = null;
     this.poller = null;
@@ -130,6 +132,7 @@ export class NoteStore {
   start() {
     if (!this.remote) return Promise.resolve();
     return new Promise((resolve) => {
+      this.unsubEdits = this.remote.subscribeEdits?.((m) => { this.edits = m; this.onchange(); });
       this.unsub = this.remote.subscribe(
         (list) => { this.applyRemote(list); resolve(); },
         (e) => { this.setStatus(e.auth ? "auth" : "error"); resolve(); },
@@ -140,7 +143,8 @@ export class NoteStore {
   stop() {
     clearTimeout(this.timer);
     if (this.unsub) this.unsub();
-    this.unsub = null;
+    if (this.unsubEdits) this.unsubEdits();
+    this.unsub = this.unsubEdits = null;
   }
 
   /** Junta a lista completa vinda do servidor com o que está por enviar localmente. */
@@ -171,6 +175,21 @@ export class NoteStore {
     return !this.remote || (!!identity && identity.email === admin);
   }
 
+  /** Modo local: guarda quem editou e quando (várias gravações seguidas da mesma pessoa contam como uma). */
+  logEdit(n, text) {
+    if (this.remote || text === n.text) return;
+    const h = (n.history = n.history || []);
+    const last = h[h.length - 1];
+    const now = Date.now();
+    if (last && last.by === getUser() && now - last.at < EDIT_GAP_MS) last.at = now;
+    else h.push({ by: getUser(), at: now });
+  }
+
+  /** Edições de uma nota, da mais antiga para a mais recente. */
+  historyOf(n) {
+    return this.remote ? this.edits.get(n.id) || [] : n.history || [];
+  }
+
   /** kind: project | folio | element | conductor | pin */
   find(kind, ref) {
     return this.notes.find((n) => n.kind === kind && n.ref === ref);
@@ -183,11 +202,13 @@ export class NoteStore {
   /** Cria ou actualiza; texto vazio apaga (excepto pins, que se apagam explicitamente). */
   set(kind, ref, text, extra = {}) {
     let n = this.find(kind, ref);
+    const isNew = !n;
     if (!n) {
       if (!text.trim()) return null;
       n = { id: noteId(kind, ref), kind, ref, ...extra, text: "", created: Date.now(), createdBy: getUser() };
       this.notes.push(n);
     }
+    if (!isNew) this.logEdit(n, text);
     n.text = text;
     n.updated = Date.now();
     n.updatedBy = getUser();
@@ -211,6 +232,7 @@ export class NoteStore {
   setText(id, text) {
     const n = this.byId(id);
     if (!n) return;
+    this.logEdit(n, text);
     n.text = text;
     n.updated = Date.now();
     n.updatedBy = getUser();

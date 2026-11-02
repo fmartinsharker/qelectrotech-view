@@ -147,14 +147,38 @@ body.focus #viewer { grid-column: 1; }
   padding: 6px 10px max(6px, env(safe-area-inset-bottom)); background: var(--panel); border-top: 1px solid var(--line);
 }
 .toolbar .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+/* botões grandes para o toque */
+.toolbar button { min-width: 48px; min-height: 48px; font-size: 18px; padding: 6px 14px; }
+.toolbar #prev, .toolbar #next { min-width: 64px; font-size: 32px; line-height: 1; padding: 0 16px 4px; }
+.toolbar #histBack { font-size: 17px; }
+.toolbar #histFwd { font-size: 24px; }
+.toolbar #zoomOut, .toolbar #zoomIn { font-size: 26px; line-height: 1; padding: 0 14px 3px; }
+.toolbar .folio-pos { font-size: 17px; }
+@media (max-width: 700px) {
+  .toolbar { justify-content: center; }
+  .toolbar .sep, .toolbar .spacer { display: none; }
+}
 .folio-pos { min-width: 5.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.folio-go { width: 6.5em; min-height: 48px; text-align: center; font-size: 17px; border: 1px solid var(--accent); border-radius: 6px; background: var(--panel); }
+.folio-go[hidden] { display: none; }
 #stage {
   flex: 1; min-height: 0; position: relative; overflow: hidden;
   background: var(--panel2);
-  touch-action: none; cursor: grab; user-select: none;
+  touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 #stage.drag { cursor: grabbing; }
 #stage.pinning { cursor: crosshair; }
+/* anel que enche durante a pressão longa (1 s) que cria uma nota */
+#pressRing {
+  position: fixed; z-index: 14; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
+  border: 3px solid #ffd400; pointer-events: none; opacity: 0; transform: scale(1.6);
+}
+#pressRing.on { animation: pressRing 1s linear forwards; }
+@keyframes pressRing {
+  0%, 25% { opacity: 0; transform: scale(1.6); }
+  35% { opacity: 1; transform: scale(1.6); }
+  100% { opacity: 1; transform: scale(0.7); background: rgba(255, 212, 0, .35); }
+}
 #stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 #stage:focus { outline: none; }
 
@@ -194,7 +218,7 @@ body.focus #viewer { grid-column: 1; }
 .note-box { background: var(--note); border-radius: 8px; padding: 8px; }
 .note-box textarea { background: transparent; border-color: transparent; color: var(--note-ink); }
 .note-box textarea:focus { border-color: var(--line); background: color-mix(in srgb, var(--panel) 40%, transparent); }
-.note-box .meta { font-size: 11px; color: var(--note-ink); opacity: 0.75; display: flex; justify-content: space-between; margin-top: 2px; }
+.note-box .meta { font-size: 11px; color: var(--note-ink); opacity: 0.75; margin-top: 2px; }
 .note-box button.link { border: 0; background: none; padding: 0; color: var(--note-ink); text-decoration: underline; font-size: 11px; }
 .note-sec { margin-top: 14px; }
 .note-sec > label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
@@ -294,8 +318,15 @@ body.resizing #stage { pointer-events: none; }
 #info {
   display: none; position: fixed; z-index: 15; top: 56px; right: 12px;
   width: min(380px, calc(100vw - 24px)); max-height: min(70vh, calc(100vh - 140px)); overflow: auto;
-  background: var(--panel); padding: 14px; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+  background: var(--panel); padding: 0; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
 }
+#info #infoBody { padding: 0 14px 14px; }
 body.has-sel #info, #app.show-info #info { display: block; }
 #app.empty > #info { display: none; }
-.pop-close { position: sticky; top: 0; float: right; margin: -6px -6px 0 8px; z-index: 1; }
+.pop-head {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 6px 4px 12px; background: var(--panel); border-radius: 10px 10px 0 0;
+  cursor: grab; touch-action: none; user-select: none;
+}
+.pop-head.drag { cursor: grabbing; }
+.pop-grip { color: var(--muted); font-size: 20px; letter-spacing: 2px; }
