@@ -4,18 +4,20 @@ Página que abre ficheiros `.qet` no próprio browser — o ficheiro nunca é en
 
 - Desenha as folhas (elementos, condutores, texto, formas, imagens, moldura e a legenda do projecto).
 - **Referências cruzadas**: mestre ↔ contactos, reports de folha; clicar salta para o elemento (mesmo noutra folha), com botão «Voltar».
-- **Notas** por projecto, folha, elemento, condutor ou ponto do desenho, com **autor e data** (criação e última edição). Exportáveis em JSON e Markdown.
+- **Notas** por projecto, folha, elemento, condutor ou ponto do desenho, com **autor e data** (criação e última edição), partilhadas em tempo real. Exportáveis em JSON e Markdown.
 - Pesquisa por etiqueta, nome, informações, nº de fio, folha e notas.
 - Pensado também para tablet: ☰ (folhas, pesquisa, notas), ⓘ (detalhes) e ⤢ (ecrã inteiro) escondem as barras. Atalhos `B`, `I`, `F`; `Esc` mostra as barras.
 - Ligações directas: `?file=url/do/ficheiro.qet#f=3&e=<uuid>`.
 
 ## Estrutura
 
-| Pasta | O que é |
+| Ficheiro / pasta | O que é |
 |---|---|
-| `web/` | A página (HTML/CSS/JS sem build) e `staticwebapp.config.json` |
-| `api/` | API das notas partilhadas (Azure Functions + Cosmos DB) e testes |
-| `dev/` | Emulador local do Azure Static Web Apps (só desenvolvimento) |
+| `web/` | A página (HTML/CSS/JS sem build) |
+| `web/js/firebase-config.js` | Configuração do Firebase (a preencher) |
+| `firestore.rules` | Regras de segurança das notas (autor e datas impostos pelo servidor) |
+| `firebase.json` | Hosting, regras e emuladores |
+| `test/` | Testes das regras de segurança |
 
 ## Correr localmente
 
@@ -23,64 +25,48 @@ Só a página, com notas locais (ficam no browser de cada pessoa):
 
     python3 .claude/devserver.py 8765      # serve web/ sem cache
 
-Com notas partilhadas e login simulado (3 utilizadores de teste, a mesma API do Azure):
+Com notas partilhadas simuladas (emuladores do Firebase, sem conta nem internet; precisa de Java 21+):
 
-    node dev/swa-emulator.js 8767 [pasta-com-ficheiros-qet]    # ficheiros em /testdata/…
+    npm install
+    npm run emulators                       # Auth + Firestore locais
+    python3 .claude/devserver.py 8766       # noutro terminal
 
-Testes da API: `cd api && npm install && npm test`.
+e abrir `http://localhost:8766/?emulator&as=ana` (ou `as=rui`, `as=francisco`). Testes das regras de segurança: `npm test`.
 
-## Notas partilhadas com Microsoft 365 (tudo no plano gratuito)
+## Notas partilhadas com Microsoft 365 (tudo gratuito, sem cartão)
 
-Quando a página corre no **Azure Static Web Apps**, o login é o da conta Microsoft e as notas passam a ser guardadas num servidor, visíveis a todos os que abrirem o mesmo projecto. Fora do Azure (ou sem sessão) continua o modo local.
+Com o Firebase configurado, a página exige login com a conta Microsoft 365 e as notas passam a ser guardadas no Firestore, visíveis a toda a equipa **em tempo real**. Sem configuração (ou fora do Firebase) continua o modo local.
 
-- O **nome e o email** de quem escreve vêm do login e são gravados pelo **servidor**; a página não consegue escrever uma nota em nome de outra pessoa. Cada nota guarda quem criou/quando e quem editou por último/quando.
+- O **email** de quem escreve vem do login e as **datas** são as do servidor: as regras (`firestore.rules`) recusam notas com outro autor ou datas falsas, e impedem mudar quem criou uma nota. O **nome** mostrado é o da conta e serve só para apresentação; o que identifica é o email.
 - As notas ligam-se ao **título do projecto** + UUID dos elementos: todas as revisões do mesmo projecto partilham notas.
-- Duas pessoas a editar a **mesma** nota ao mesmo tempo: ganha a última a gravar (a página sincroniza de 15 em 15 s e ao voltar ao separador).
-- Qualquer pessoa autorizada pode editar e apagar notas. Notas importadas de JSON passam a ter como autor quem as importou.
+- Duas pessoas a editar a **mesma** nota ao mesmo tempo: ganha a última a gravar.
+- Qualquer pessoa da empresa pode editar e apagar qualquer nota.
 
-### Custo: 0 €
+### Custo: 0 €, sem cartão
 
-| Peça | Plano | Limites relevantes (segundo a documentação da Microsoft) |
-|---|---|---|
-| Static Web Apps | **Free** | 100 GB de tráfego/mês (acima disso o site deixa de ser servido), 250 MB por ambiente, API gerida incluída, sem SLA |
-| Azure Functions (a API) | incluída no Free | 1 milhão de execuções/mês grátis |
-| Cosmos DB | **Free tier** (grátis para sempre) | 1000 RU/s e 25 GB; **um por subscrição** e só se escolhe ao criar a conta |
-| GitHub Actions | repositório | grátis dentro das quotas do GitHub |
+Plano **Spark** do Firebase (a página de preços indica «No payment method needed»). Limites por projecto, segundo a documentação: Firestore 1 GiB, 50 mil leituras e 20 mil escritas por dia; Hosting 10 GB e 360 MB de tráfego por dia. Este uso fica muito abaixo. As Cloud Functions não existem no Spark, e não são precisas. O registo da aplicação no Entra ID não precisa de subscrição Azure.
 
-Este uso (poucas notas de texto) fica uma fração mínima destes limites. Criar a conta gratuita da Azure pede um cartão (a Microsoft indica que não é cobrado); convém ficar atento ao *Cost Management* no início. **O plano Standard (pago) não é preciso:** a configuração do login próprio da organização (Entra ID) só existe nele, por isso aqui usa-se o login Microsoft pré-configurado e a restrição é feita como abaixo.
+### Configurar (uma vez)
 
-### Quem pode entrar (no plano gratuito)
+1. **Firebase**: em https://console.firebase.google.com (conta Google) *Add project* (sem Analytics). Fica no plano Spark.
+2. **Firestore**: *Build → Firestore Database → Create database* (modo produção, região europeia).
+3. **Entra ID** (portal Microsoft Entra, com permissão para registar aplicações): *App registrations → New registration*.
+   - *Supported account types*: **Accounts in this organizational directory only (single tenant)**. É este o controlo que limita o login à empresa; **não escolher** contas pessoais nem «any organization».
+   - *Redirect URI* (Web): `https://<id-do-projecto>.firebaseapp.com/__/auth/handler`
+   - *Certificates & secrets → New client secret*: copiar o **Value** (expira; anotar a data para renovar).
+   - Na página *Overview* copiar o *Application (client) ID* e o *Directory (tenant) ID*.
+4. **Firebase → Authentication → Sign-in method → Microsoft**: activar e colar o *Application (client) ID* e o *client secret*.
+5. **Firebase → Project settings → Your apps → Web app (</>)**: copiar o `firebaseConfig` para `web/js/firebase-config.js` e preencher `microsoftTenant` com o *Directory (tenant) ID*.
+6. Se o domínio de email não for `harkersolutions.com`, mudar a expressão em `allowed()` no `firestore.rules` e `emailDomain` no `firebase-config.js`.
+7. **Publicar** (Hosting e regras):
 
-O login pré-configurado deixa qualquer conta Microsoft autenticar-se, não só a vossa organização. A restrição faz-se em duas camadas, ambas aplicadas **no servidor**:
+       npm install -g firebase-tools
+       firebase login
+       firebase deploy --only firestore:rules,hosting --project <id-do-projecto>
 
-1. `ALLOWED_DOMAINS=harkersolutions.com`: a API recusa (403) contas cujo email não seja desse domínio, por isso contas pessoais ou de outras empresas não leem nem escrevem notas.
-2. *(opcional, mais restrito)* `REQUIRED_ROLE=equipa`: só passa quem foi convidado com esse papel (Static Web App → *Role management* → *Invite*, até 25 pessoas no plano gratuito; o convite vale 168 h). Para esconder também a própria página, trocar em `web/staticwebapp.config.json` os `allowedRoles` de `"/*"` para `["equipa"]`.
+   A página fica em `https://<id-do-projecto>.web.app`.
 
-Limitação a ter presente: sem o login próprio da organização não há verificação do *tenant* no token. A camada 1 confia no email que o Azure entrega; se precisarem de garantia mais forte, usem a camada 2 (convites) ou o plano pago.
-
-### Configurar no Azure (uma vez)
-
-1. **Cosmos DB**: *Create → Azure Cosmos DB for NoSQL*. **Marcar «Apply Free Tier Discount»** (não se pode ligar depois). Capacidade: *Provisioned throughput*. Em *Keys* copiar a *Primary connection string*. A base `qetnotes` e o contentor `notes` (partição `/project`) são criados pela API; se preferirem criá-los à mão, usar **400 RU/s manual** (dentro dos 1000 gratuitos).
-2. **Static Web App**, plano **Free**. Ligar ao repositório com `app_location = web`, `api_location = api`, `output = (vazio)`.
-3. **Static Web App → Environment variables / Configuration** (definições da aplicação):
-
-   | Nome | Valor |
-   |---|---|
-   | `COSMOS_CONNECTION` | connection string do Cosmos DB |
-   | `ALLOWED_DOMAINS` | `harkersolutions.com` (vários, separados por vírgula) |
-   | `REQUIRED_ROLE` | *(opcional)* `equipa` |
-
-### Publicação automática (GitHub Actions)
-
-O ficheiro `.github/workflows/azure-static-web-apps.yml` corre os testes da API em cada *push* e *pull request*, e publica (página + API) quando há *push* para `main` e os testes passam.
-
-1. No Static Web App: *Overview → Manage deployment token* e copiar o token.
-2. No GitHub: *Settings → Secrets and variables → Actions → New repository secret* com o nome `AZURE_STATIC_WEB_APPS_API_TOKEN`.
-3. Se ao criar o Static Web App ligares o GitHub no portal, o Azure gera o seu próprio workflow e um segredo com outro nome; apaga o workflow gerado (ou troca o nome do segredo neste) para não publicar duas vezes.
-
-Sem o segredo, os testes correm mas o passo «Publicar» falha. Não há ambientes de pré-visualização por *pull request*.
-
-Todas as rotas exigem sessão; sem login o Azure redireciona para a entrada da Microsoft. **Não foi testado num Azure real** (só com o emulador e testes automáticos): na primeira publicação, verificar o login, criar uma nota e abri-la noutro browser com outra conta.
+**Não foi testado contra um projecto Firebase real** (só com os emuladores): na primeira publicação, verificar o login Microsoft, criar uma nota e abri-la noutro browser com outra conta. Dois pontos por confirmar na consola: que o login Microsoft está disponível no plano Spark, e se o email vindo da Microsoft chega marcado como verificado. Por isso a restrição principal é o registo «single tenant» do passo 3, e a regra do domínio é uma segunda barreira.
 
 ## Fidelidade ao QElectroTech
 

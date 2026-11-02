@@ -4,3 +4,7 @@ local.settings.json
 dev/.notes.json
 .claude/launch.json
 .DS_Store
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log

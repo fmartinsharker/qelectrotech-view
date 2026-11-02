@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// Notas partilhadas do Visualizador QElectroTech.
+// A identidade é o email do login Microsoft (token do Firebase Auth): as regras impõem que o autor
+// gravado é quem está autenticado e que as datas são as do servidor. Para outro domínio, mudar a
+// expressão regular em allowed().
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email is string;
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function allowed() {
+      return signedIn() && email().matches('.*@harkersolutions[.]com');
+    }
+
+    function shape(d) {
+      return d.keys().hasOnly(['kind', 'ref', 'text', 'folio', 'x', 'y', 'created', 'createdBy', 'createdByEmail', 'updated', 'updatedBy', 'updatedByEmail'])
+        && d.keys().hasAll(['kind', 'ref', 'text', 'created', 'createdBy', 'createdByEmail', 'updated', 'updatedBy', 'updatedByEmail'])
+        && d.kind in ['project', 'folio', 'element', 'conductor', 'pin']
+        && d.ref is string && d.ref.size() > 0 && d.ref.size() <= 600
+        && d.text is string && d.text.size() <= 20000
+        && d.createdBy is string && d.createdBy.size() <= 120
+        && d.updatedBy is string && d.updatedBy.size() <= 120
+        && (d.kind in ['pin', 'conductor'] ? (d.get('folio', null) is string && d.get('folio', '').size() > 0 && d.get('folio', '').size() <= 200) : true)
+        && (d.kind == 'pin' ? (d.get('x', null) is number && d.get('y', null) is number) : true);
+    }
+
+    match /projects/{project}/notes/{note} {
+      allow read: if allowed();
+
+      allow create: if allowed()
+        && shape(request.resource.data)
+        && request.resource.data.createdByEmail == email()
+        && request.resource.data.updatedByEmail == email()
+        && request.resource.data.created == request.time
+        && request.resource.data.updated == request.time;
+
+      allow update: if allowed()
+        && shape(request.resource.data)
+        && request.resource.data.updatedByEmail == email()
+        && request.resource.data.updated == request.time
+        && request.resource.data.created == resource.data.created
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdByEmail == resource.data.createdByEmail
+        && request.resource.data.kind == resource.data.kind
+        && request.resource.data.ref == resource.data.ref
+        && request.resource.data.get('folio', null) == resource.data.get('folio', null)
+        && request.resource.data.get('x', null) == resource.data.get('x', null)
+        && request.resource.data.get('y', null) == resource.data.get('y', null);
+
+      allow delete: if allowed();
+    }
+  }
+}

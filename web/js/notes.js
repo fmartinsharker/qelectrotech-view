@@ -1,6 +1,6 @@
 // Notas do utilizador.
-// - Modo partilhado (Azure Static Web Apps + login Microsoft 365): as notas ficam no servidor,
-//   o autor e as datas são escritos pelo servidor a partir da sessão.
+// - Modo partilhado (Firebase + login Microsoft 365): as notas ficam no Firestore e chegam a todos
+//   em tempo real; as regras de segurança do servidor impõem o autor (email do login) e as datas.
 // - Modo local (sem servidor): ficam no browser (localStorage) e podem ser exportadas/importadas.
 // O ficheiro .qet nunca é alterado: as notas ligam-se a folhas/elementos pelo UUID.
 
@@ -12,7 +12,7 @@ let identity = null; // { name, email } quando há sessão Microsoft 365
 export function setIdentity(i) { identity = i; }
 export function getIdentity() { return identity; }
 
-/** Nome de quem escreve. Com login vem da sessão; sem login é o que a pessoa escreveu. */
+/** Nome de quem escreve. Com login vem da sessão (Microsoft 365); sem login é o que a pessoa escreveu. */
 export function getUser() {
   if (identity) return identity.name;
   try { return localStorage.getItem(USER_KEY) || memoryUser; } catch { return memoryUser; }
@@ -22,44 +22,17 @@ export function setUser(name) {
   try { localStorage.setItem(USER_KEY, memoryUser); } catch { /* sem armazenamento: fica só em memória */ }
 }
 
-const b64url = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export const b64url = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 /** Identificador estável: duas pessoas a anotar o mesmo elemento escrevem na mesma nota. */
 export const noteId = (kind, ref) => `${kind}_${b64url(ref)}`;
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
 
-/** Cliente da API /api/notes. */
-export class RemoteBackend {
-  constructor(project) { this.project = project; }
-
-  async #json(r) {
-    if (r.status === 401 || r.status === 403) throw Object.assign(new Error("Sessão inválida"), { auth: true });
-    if (!r.ok) throw new Error(`Erro ${r.status}`);
-    return r.json();
-  }
-
-  list() {
-    return fetch(`/api/notes?project=${encodeURIComponent(this.project)}`, { cache: "no-store" }).then((r) => this.#json(r));
-  }
-
-  put(n) {
-    const body = { project: this.project, kind: n.kind, ref: n.ref, text: n.text };
-    if (n.folio) body.folio = n.folio;
-    if (n.kind === "pin") { body.x = n.x; body.y = n.y; }
-    return fetch(`/api/notes/${encodeURIComponent(n.id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => this.#json(r));
-  }
-
-  del(id) {
-    return fetch(`/api/notes/${encodeURIComponent(id)}?project=${encodeURIComponent(this.project)}`, { method: "DELETE" }).then((r) => this.#json(r));
-  }
-}
-
 const FLUSH_MS = 700;
-const POLL_MS = 15000;
 
 export class NoteStore {
-  /** key: chave local (localStorage); remote: RemoteBackend ou null */
+  /** key: chave local (localStorage); remote: backend de notas partilhadas (ver firebase-backend.js) ou null */
   constructor(key, remote = null) {
     this.key = PREFIX + key;
     this.remote = remote;
@@ -150,44 +123,42 @@ export class NoteStore {
 
   // ---------- sincronização (modo partilhado) ----------
 
-  async start() {
-    if (!this.remote) return;
-    await this.pull();
-    this.poller = setInterval(() => { if (!document.hidden) this.pull(); }, POLL_MS);
-    this.onvisible = () => { if (!document.hidden) this.pull(); };
-    document.addEventListener("visibilitychange", this.onvisible);
+  /** Liga-se ao servidor: o backend avisa em tempo real de qualquer alteração (de qualquer pessoa). */
+  start() {
+    if (!this.remote) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.unsub = this.remote.subscribe(
+        (list) => { this.applyRemote(list); resolve(); },
+        (e) => { this.setStatus(e.auth ? "auth" : "error"); resolve(); },
+      );
+    });
   }
 
   stop() {
-    clearInterval(this.poller);
     clearTimeout(this.timer);
-    if (this.onvisible) document.removeEventListener("visibilitychange", this.onvisible);
+    if (this.unsub) this.unsub();
+    this.unsub = null;
   }
 
-  async pull() {
-    if (!this.remote || this.flushing) return;
+  /** Junta a lista completa vinda do servidor com o que está por enviar localmente. */
+  applyRemote(list) {
     const t0 = Date.now();
-    try {
-      const { notes } = await this.remote.list();
-      let changed = false;
-      const seen = new Set();
-      for (const rn of notes) {
-        seen.add(rn.id);
-        if (this.dirty.has(rn.id) || this.deleted.has(rn.id)) continue; // há alterações locais por enviar
-        const ln = this.byId(rn.id);
-        if (!ln) { this.notes.push(rn); changed = true; }
-        else if ((rn.updated || 0) !== (ln.updated || 0) || rn.text !== ln.text) { Object.assign(ln, rn); changed = true; }
-      }
-      // apagadas por outra pessoa (ignora as criadas há instantes, que o servidor ainda pode não ter listado)
-      const before = this.notes.length;
-      this.notes = this.notes.filter((n) => seen.has(n.id) || this.dirty.has(n.id) || (n.updated || n.created || 0) > t0 - 8000);
-      if (this.notes.length !== before) changed = true;
-      this.lastSync = Date.now();
-      this.setStatus(this.dirty.size ? "saving" : "saved");
-      if (changed) this.onchange();
-    } catch (e) {
-      this.setStatus(e.auth ? "auth" : "error");
+    let changed = false;
+    const seen = new Set();
+    for (const rn of list) {
+      seen.add(rn.id);
+      if (this.dirty.has(rn.id) || this.deleted.has(rn.id)) continue; // há alterações locais por enviar
+      const ln = this.byId(rn.id);
+      if (!ln) { this.notes.push(rn); changed = true; }
+      else if ((rn.updated || 0) !== (ln.updated || 0) || rn.text !== ln.text) { Object.assign(ln, rn); changed = true; }
     }
+    // apagadas por outra pessoa (ignora as criadas há instantes)
+    const before = this.notes.length;
+    this.notes = this.notes.filter((n) => seen.has(n.id) || this.dirty.has(n.id) || (n.updated || n.created || 0) > t0 - 8000);
+    if (this.notes.length !== before) changed = true;
+    this.lastSync = Date.now();
+    if (!this.dirty.size && !this.deleted.size) this.setStatus("saved");
+    if (changed) this.onchange();
   }
 
   // ---------- operações ----------

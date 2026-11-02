@@ -1,6 +1,7 @@
 import { parseProject, elementName, locationOf, relatedOf, nested, str, GENERIC_FONT } from "./qet.js";
 import { renderFolio, elementBox, esc } from "./render.js";
-import { NoteStore, RemoteBackend, getUser, setUser, setIdentity } from "./notes.js";
+import { NoteStore, getUser, setUser, setIdentity } from "./notes.js";
+import { firebaseConfig, microsoftTenant, emailDomain } from "./firebase-config.js";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -55,32 +56,75 @@ async function loadFonts(families) {
   await Promise.race([Promise.all(jobs), new Promise((r) => setTimeout(r, 3000))]);
 }
 
-/** Sessão Microsoft 365 (Azure Static Web Apps). Fora do Azure não existe /.auth/me e fica o modo local. */
-async function detectAuth() {
+// ---------------------------------------------------------------- sessão Microsoft 365 (Firebase)
+
+const params = new URLSearchParams(location.search);
+// nos emuladores locais (?emulator) não é preciso projecto Firebase
+const useEmulator = params.has("emulator") && ["localhost", "127.0.0.1"].includes(location.hostname);
+const fbConfig = useEmulator ? { apiKey: "demo", authDomain: "localhost", projectId: "demo-qetview", appId: "demo" } : firebaseConfig;
+const DEV_USERS = { ana: ["Ana Silva", "ana.silva@harkersolutions.com"], rui: ["Rui Costa", "rui.costa@harkersolutions.com"], francisco: ["Francisco Martins", "francisco.martins@harkersolutions.com"] };
+
+/** Com Firebase configurado a página exige login; sem configuração fica o modo local. */
+async function initAuth() {
+  if (!fbConfig) return;
   try {
-    const r = await fetch("/.auth/me", { cache: "no-store" });
-    if (!r.ok) return null;
-    const p = (await r.json()).clientPrincipal;
-    if (!p || !p.userDetails) return null;
-    const nc = (p.claims || []).find((c) => c.typ === "name" || /\/claims\/name$/.test(c.typ || ""));
-    return { name: (nc && nc.val) || p.userDetails, email: p.userDetails };
-  } catch {
-    return null;
+    const { createFirebase } = await import("./firebase-backend.js");
+    S.fb = await createFirebase(fbConfig, { tenant: microsoftTenant, emulator: useEmulator });
+  } catch (e) {
+    S.authError = `Não foi possível ligar ao Firebase (${e.message}). Verifica a ligação à internet.`;
+    applyAuthUI();
+    return;
   }
+  await new Promise((resolve) => {
+    let first = true;
+    S.fb.onUser((u) => {
+      if (u && emailDomain && !u.email.endsWith("@" + emailDomain)) {
+        S.authError = `A conta ${u.email} não pertence a ${emailDomain}.`;
+        S.fb.signOut();
+        u = null;
+      }
+      S.auth = u;
+      setIdentity(u);
+      applyAuthUI();
+      if (first) { first = false; resolve(); } else if (!u) location.reload(); // saiu da sessão: recomeça limpo
+    });
+  });
+  const as = useEmulator && DEV_USERS[params.get("as")];
+  if (as && (!S.auth || S.auth.email !== as[1])) await S.fb.devSignIn(...as);
 }
 
-S.authReady = detectAuth().then((a) => {
-  S.auth = a;
-  setIdentity(a);
-  const chip = $("#userChip");
-  chip.hidden = !a;
+function applyAuthUI() {
+  const shared = !!fbConfig;
+  const a = S.auth;
+  $("#userChip").hidden = !a;
   $("#logout").hidden = !a;
-  if (a) chip.textContent = a.name;
-  $("#userRow").hidden = !!a;
+  if (a) { $("#userChip").textContent = a.name; $("#userChip").title = a.email; }
+  $("#userRow").hidden = shared; // com login o nome vem da conta, não se escreve
+  $("#loginBox").hidden = !(shared && !a);
+  $("#drop").hidden = shared && !a;
+  $("#loginError").textContent = S.authError || "";
+}
+
+$("#btnLogin").addEventListener("click", async () => {
+  S.authError = "";
+  applyAuthUI();
+  try {
+    await S.fb.signIn();
+  } catch (e) {
+    const code = e.code || "";
+    S.authError = code.includes("popup-blocked") ? "O browser bloqueou a janela de login. Permite pop-ups para este site e tenta de novo."
+      : code.includes("popup-closed") || code.includes("cancelled") ? "Login cancelado."
+      : `Não foi possível entrar (${e.code || e.message}).`;
+    applyAuthUI();
+  }
 });
+$("#logout").addEventListener("click", () => S.fb?.signOut());
+
+S.authReady = initAuth();
 
 async function load(text, name) {
   await S.authReady;
+  if (fbConfig && !S.auth) throw new Error("Entra primeiro com a conta Microsoft 365.");
   const p = parseProject(text, name);
   await loadFonts(p.fonts);
   if (!p.folios.length) throw new Error("O projecto não tem folhas.");
@@ -92,7 +136,7 @@ async function load(text, name) {
   S.notes?.stop();
   // as notas partilhadas ligam-se ao título do projecto: todas as revisões do mesmo projecto partilham notas
   const projectKey = p.title.trim() || name.replace(/\.[^.]+$/, "");
-  S.notes = S.auth ? new NoteStore(projectKey, new RemoteBackend(projectKey)) : new NoteStore(`${name.replace(/\.[^.]+$/, "")}|${p.title}`);
+  S.notes = S.auth && S.fb ? new NoteStore(projectKey, S.fb.notes(projectKey, S.auth)) : new NoteStore(`${name.replace(/\.[^.]+$/, "")}|${p.title}`);
   S.notes.onchange = onNotesChanged;
   S.notes.onstatus = refreshNotesStatus;
   S.notes.start().then(() => { refreshNotesUI(); buildFolioList(); renderPins(); });
@@ -907,6 +951,5 @@ function updateHash() {
 
 // ---------------------------------------------------------------- arranque
 
-const params = new URLSearchParams(location.search);
 if (params.get("file")) openUrl(params.get("file"));
 updateHistButtons();
