@@ -1,6 +1,7 @@
 {
   "firestore": { "rules": "firestore.rules" },
   "hosting": {
+    "site": "qelectrotechview",
     "public": "web",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "headers": [

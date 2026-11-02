@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Notas partilhadas do Visualizador QElectroTech.
+// Notas partilhadas do QElectroTech View.
 // A identidade é o email do login Microsoft (token do Firebase Auth): as regras impõem que o autor
 // gravado é quem está autenticado e que as datas são as do servidor. Para outro domínio, mudar a
 // expressão regular em allowed().

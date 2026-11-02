@@ -112,8 +112,12 @@ $("#btnLogin").addEventListener("click", async () => {
     await S.fb.signIn();
   } catch (e) {
     const code = e.code || "";
-    S.authError = code.includes("popup-blocked") ? "O browser bloqueou a janela de login. Permite pop-ups para este site e tenta de novo."
+    S.authError =
+      code.includes("popup-blocked") ? "O browser bloqueou a janela de login. Permite pop-ups para este site e tenta de novo."
       : code.includes("popup-closed") || code.includes("cancelled") ? "Login cancelado."
+      : code.includes("invalid-credential") ? "O Firebase recusou o login Microsoft (auth/invalid-credential). Costuma ser o ID da aplicação ou o client secret mal colados no Firebase (Authentication → Sign-in method → Microsoft), ou um secret expirado."
+      : code.includes("operation-not-allowed") ? "O login Microsoft ainda não está activado no Firebase (Authentication → Sign-in method → Microsoft)."
+      : code.includes("unauthorized-domain") ? "Este endereço não está autorizado no Firebase (Authentication → Settings → Authorized domains)."
       : `Não foi possível entrar (${e.code || e.message}).`;
     applyAuthUI();
   }
@@ -141,7 +145,7 @@ async function load(text, name) {
   S.notes.onstatus = refreshNotesStatus;
   S.notes.start().then(() => { refreshNotesUI(); buildFolioList(); renderPins(); });
   $("#projTitle").textContent = [p.title, name].filter(Boolean).join(" — ");
-  document.title = `${p.title || name} · Visualizador QElectroTech`;
+  document.title = `${p.title || name} · QElectroTech View`;
   $("#app").classList.remove("empty");
   buildFolioList();
   refreshNotesUI();

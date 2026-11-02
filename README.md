@@ -1,4 +1,4 @@
-# Visualizador QElectroTech (só leitura)
+# QElectroTech View (só leitura)
 
 Página que abre ficheiros `.qet` no próprio browser — o ficheiro nunca é enviado nem alterado.
 
@@ -52,7 +52,7 @@ Plano **Spark** do Firebase (a página de preços indica «No payment method nee
 2. **Firestore**: *Build → Firestore Database → Create database* (modo produção, região europeia).
 3. **Entra ID** (portal Microsoft Entra, com permissão para registar aplicações): *App registrations → New registration*.
    - *Supported account types*: **Accounts in this organizational directory only (single tenant)**. É este o controlo que limita o login à empresa; **não escolher** contas pessoais nem «any organization».
-   - *Redirect URI* (Web): `https://<id-do-projecto>.firebaseapp.com/__/auth/handler`
+   - *Redirect URI* (Web): `https://qelectrotechview.web.app/__/auth/handler` (o mesmo endereço da página; acrescentar também o `https://<id-do-projecto>.firebaseapp.com/__/auth/handler` não faz mal)
    - *Certificates & secrets → New client secret*: copiar o **Value** (expira; anotar a data para renovar).
    - Na página *Overview* copiar o *Application (client) ID* e o *Directory (tenant) ID*.
 4. **Firebase → Authentication → Sign-in method → Microsoft**: activar e colar o *Application (client) ID* e o *client secret*.
@@ -62,9 +62,9 @@ Plano **Spark** do Firebase (a página de preços indica «No payment method nee
 
        npm install -g firebase-tools
        firebase login
-       firebase deploy --only firestore:rules,hosting --project <id-do-projecto>
+       firebase deploy --only firestore:rules,hosting --project harker-solutions
 
-   A página fica em `https://<id-do-projecto>.web.app`.
+   A página fica em `https://qelectrotechview.web.app` (site de Hosting `qelectrotechview`, definido em `firebase.json`).
 
 **Não foi testado contra um projecto Firebase real** (só com os emuladores): na primeira publicação, verificar o login Microsoft, criar uma nota e abri-la noutro browser com outra conta. Dois pontos por confirmar na consola: que o login Microsoft está disponível no plano Spark, e se o email vindo da Microsoft chega marcado como verificado. Por isso a restrição principal é o registo «single tenant» do passo 3, e a regra do domínio é uma segunda barreira.
 

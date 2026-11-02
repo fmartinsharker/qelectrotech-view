@@ -2,7 +2,7 @@
   "name": "qelectrotech-view",
   "version": "1.0.0",
   "private": true,
-  "description": "Visualizador QElectroTech (só leitura) com notas partilhadas (Firebase, plano gratuito)",
+  "description": "QElectroTech View (só leitura) com notas partilhadas (Firebase, plano gratuito)",
   "scripts": {
     "test": "firebase emulators:exec --only firestore --project demo-qetview \"node --test test/*.test.js\"",
     "emulators": "firebase emulators:start --only auth,firestore,hosting --project demo-qetview"
