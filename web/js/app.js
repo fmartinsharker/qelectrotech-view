@@ -62,7 +62,9 @@ async function loadFonts(families) {
 const params = new URLSearchParams(location.search);
 // nos emuladores locais (?emulator) não é preciso projecto Firebase
 const useEmulator = params.has("emulator") && ["localhost", "127.0.0.1"].includes(location.hostname);
-const fbConfig = useEmulator ? { apiKey: "demo", authDomain: "localhost", projectId: "demo-qetview", appId: "demo" } : firebaseConfig;
+// ?local: sem login e sem servidor (para testar, p.ex. num tablet); as notas ficam só neste browser. Os dados partilhados continuam protegidos pelas regras do servidor.
+const localOnly = params.has("local") && !useEmulator;
+const fbConfig = localOnly ? null : useEmulator ? { apiKey: "demo", authDomain: "localhost", projectId: "demo-qetview", appId: "demo" } : firebaseConfig;
 const DEV_USERS = { ana: ["Ana Silva", "ana.silva@harkersolutions.com"], rui: ["Rui Costa", "rui.costa@harkersolutions.com"], francisco: ["Francisco Martins", "francisco.martins@harkersolutions.com"] };
 
 /** Com Firebase configurado a página exige login; sem configuração fica o modo local. */
@@ -344,7 +346,8 @@ function select(sel, { open = true } = {}) {
   drawSelection();
   renderPins();
   renderInfo();
-  if (sel && open) $("#app").classList.add("show-info");
+  if (!sel) $("#app").classList.remove("show-info");
+  syncBarButtons();
   updateHash();
 }
 
@@ -900,21 +903,31 @@ const BARS_KEY = "qetview:bars";
 
 function syncBarButtons() {
   const app = $("#app");
-  const open = (w) => (wide() ? !app.classList.contains("hide-" + w) : app.classList.contains("show-" + w));
-  $("#btnSide").setAttribute("aria-pressed", open("side"));
-  $("#btnInfo").setAttribute("aria-pressed", open("info"));
+  $("#btnSide").setAttribute("aria-pressed", wide() ? !app.classList.contains("hide-side") : app.classList.contains("show-side"));
+  $("#btnInfo").setAttribute("aria-pressed", document.body.classList.contains("has-sel") || app.classList.contains("show-info"));
 }
 
-function toggleBar(which) {
+function toggleBar() {
   const app = $("#app");
   if (wide()) {
-    app.classList.toggle("hide-" + which);
-    try { localStorage.setItem(BARS_KEY, JSON.stringify({ side: app.classList.contains("hide-side"), info: app.classList.contains("hide-info") })); } catch { /* sem armazenamento */ }
+    app.classList.toggle("hide-side");
+    try { localStorage.setItem(BARS_KEY, JSON.stringify({ side: app.classList.contains("hide-side") })); } catch { /* sem armazenamento */ }
   } else {
-    const other = which === "side" ? "info" : "side";
-    app.classList.toggle("show-" + which);
-    app.classList.remove("show-" + other);
+    app.classList.toggle("show-side");
   }
+  syncBarButtons();
+}
+
+/** Pop-up com os detalhes e as notas: abre ao seleccionar algo ou aqui (detalhes da folha). */
+const infoOpen = () => document.body.classList.contains("has-sel") || $("#app").classList.contains("show-info");
+function closeInfo() {
+  select(null, { open: false });
+  $("#app").classList.remove("show-info");
+  syncBarButtons();
+}
+function toggleInfo() {
+  if (infoOpen()) return closeInfo();
+  $("#app").classList.add("show-info");
   syncBarButtons();
 }
 
@@ -923,36 +936,34 @@ function setFocus(on) {
   $("#btnFocus").setAttribute("aria-pressed", on);
 }
 
-$("#btnSide").addEventListener("click", () => toggleBar("side"));
-$("#btnInfo").addEventListener("click", () => toggleBar("info"));
+$("#btnSide").addEventListener("click", toggleBar);
+$("#btnInfo").addEventListener("click", toggleInfo);
 $("#btnFocus").addEventListener("click", () => setFocus(true));
 $("#btnRestore").addEventListener("click", () => setFocus(false));
 matchMedia("(min-width: 961px)").addEventListener("change", syncBarButtons);
 try {
   const b = JSON.parse(localStorage.getItem(BARS_KEY) || "{}");
   $("#app").classList.toggle("hide-side", !!b.side);
-  $("#app").classList.toggle("hide-info", !!b.info);
 } catch { /* predefinição */ }
 syncBarButtons();
 
 // largura das barras: arrastar o separador (rato ou toque), setas no teclado, duplo clique repõe
 const WIDTHS_KEY = "qetview:widths";
-const WIDTH_DEFAULT = { side: 270, info: 330 };
+const WIDTH_DEFAULT = { side: 270 };
 const WIDTH_MIN = 180;
 const widths = { ...WIDTH_DEFAULT };
 try { Object.assign(widths, JSON.parse(localStorage.getItem(WIDTHS_KEY) || "{}")); } catch { /* predefinição */ }
 
 function setWidth(which, px) {
   const app = $("#app");
-  const other = wide() ? (app.classList.contains("hide-" + (which === "side" ? "info" : "side")) ? 0 : widths[which === "side" ? "info" : "side"]) : 0;
-  const max = Math.max(WIDTH_MIN, Math.min(640, app.clientWidth - other - 320)); // o desenho fica com pelo menos 320px
+  const max = Math.max(WIDTH_MIN, Math.min(640, app.clientWidth - 320)); // o desenho fica com pelo menos 320px
   widths[which] = Math.round(Math.min(max, Math.max(WIDTH_MIN, px)));
   app.style.setProperty(`--${which}-w`, widths[which] + "px");
 }
 const saveWidths = () => { try { localStorage.setItem(WIDTHS_KEY, JSON.stringify(widths)); } catch { /* sem armazenamento */ } };
 
-for (const which of ["side", "info"]) {
-  const grip = $(which === "side" ? "#rzSide" : "#rzInfo");
+for (const which of ["side"]) {
+  const grip = $("#rzSide");
   grip.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     grip.setPointerCapture(e.pointerId);
@@ -962,7 +973,7 @@ for (const which of ["side", "info"]) {
   grip.addEventListener("pointermove", (e) => {
     if (!grip.hasPointerCapture(e.pointerId)) return;
     const r = $("#app").getBoundingClientRect();
-    setWidth(which, which === "side" ? e.clientX - r.left : r.right - e.clientX);
+    setWidth(which, e.clientX - r.left);
   });
   const end = (e) => {
     if (!grip.hasPointerCapture(e.pointerId)) return;
@@ -978,7 +989,7 @@ for (const which of ["side", "info"]) {
     const d = e.key === "ArrowLeft" ? -16 : e.key === "ArrowRight" ? 16 : 0;
     if (!d) return;
     e.preventDefault();
-    setWidth(which, widths[which] + (which === "side" ? d : -d));
+    setWidth(which, widths[which] + d);
     saveWidths();
   });
   setWidth(which, widths[which]);
@@ -1008,10 +1019,10 @@ window.addEventListener("drop", (e) => {
 window.addEventListener("keydown", (e) => {
   const typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName);
   if (e.key === "Escape") {
-    if (document.body.classList.contains("focus")) { if (S.sel) select(null, { open: false }); else setFocus(false); }
+    if (document.body.classList.contains("focus")) { if (infoOpen()) closeInfo(); else setFocus(false); }
     else if (S.pin) setPinMode(false);
     else if (typing) e.target.blur();
-    else { select(null, { open: false }); $("#app").classList.remove("show-side", "show-info"); }
+    else { closeInfo(); $("#app").classList.remove("show-side"); }
     return;
   }
   if (typing || e.ctrlKey || e.metaKey || !S.project) return;
@@ -1026,7 +1037,7 @@ window.addEventListener("keydown", (e) => {
     case "n": case "N": setPinMode(!S.pin); break;
     case "f": case "F": setFocus(!document.body.classList.contains("focus")); break;
     case "b": case "B": toggleBar("side"); break;
-    case "i": case "I": toggleBar("info"); break;
+    case "i": case "I": toggleInfo(); break;
     case "/": e.preventDefault(); setTab("search"); $("#app").classList.add("show-side"); break;
     default: return;
   }
@@ -1058,6 +1069,9 @@ updateHistButtons();
 // ---------------------------------------------------------------- ecrã de abertura / sobre
 
 const splash = $("#splash");
+// data da publicação (a do ficheiro no servidor): confirma que versão da página está a ser usada
+const published = new Date(document.lastModified);
+if (!isNaN(published)) $("#splashVer").textContent = `Publicado em ${published.toLocaleString("pt-PT", { dateStyle: "short", timeStyle: "short" })} · `;
 function hideSplash() {
   splash.classList.add("out");
   splash.setAttribute("aria-hidden", "true");
@@ -1076,4 +1090,4 @@ splash.focus();
 // botão ✉ do cabeçalho: o mesmo que «Partilhar por email» do separador Notas
 $("#btnMail").addEventListener("click", () => $("#btnShareMail").click());
 
-$("#popClose").addEventListener("click", () => select(null, { open: false }));
+$("#popClose").addEventListener("click", closeInfo);

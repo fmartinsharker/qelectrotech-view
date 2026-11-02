@@ -27,7 +27,7 @@
   <button id="logout" class="logout" hidden>Sair</button>
   <label class="chk" title="Mostrar no desenho a localização dos contactos / do mestre / dos reports"><input type="checkbox" id="optXref" checked> Ref. cruzadas no desenho</label>
   <button class="icon" id="btnMail" title="Partilhar as notas por email" aria-label="Partilhar as notas por email" disabled>✉</button>
-  <button class="icon" id="btnInfo" title="Mostrar / esconder detalhes e notas (I)" aria-label="Detalhes e notas" aria-pressed="true">ⓘ</button>
+  <button class="icon" id="btnInfo" title="Detalhes e notas da folha (I)" aria-label="Detalhes e notas da folha" aria-pressed="false">ⓘ</button>
   <button class="icon" id="btnFocus" title="Ecrã inteiro do desenho: esconde todas as barras (F)" aria-label="Ecrã inteiro do desenho">⤢</button>
 </header>
 
@@ -92,7 +92,6 @@
   <aside id="info"><button class="icon pop-close" id="popClose" title="Fechar (Esc)" aria-label="Fechar">×</button><div id="infoBody"></div></aside>
 
   <div class="resizer" id="rzSide" role="separator" aria-orientation="vertical" aria-label="Largura da barra da esquerda" tabindex="0" title="Arrasta para redimensionar (duplo clique repõe)"></div>
-  <div class="resizer" id="rzInfo" role="separator" aria-orientation="vertical" aria-label="Largura da barra da direita" tabindex="0" title="Arrasta para redimensionar (duplo clique repõe)"></div>
 
   <div id="welcome">
     <div class="card">
@@ -116,7 +115,7 @@
     <img src="icons/icon.svg" alt="" class="splash-logo">
     <h1 id="splashTitle">QElectroTech View</h1>
     <p class="splash-tag">Consulta de esquemas QElectroTech</p>
-    <p class="splash-foot">Versão 1.0 · formato e símbolos © equipa QElectroTech (GPL v2)</p>
+    <p class="splash-foot"><span id="splashVer"></span>Formato e símbolos © equipa QElectroTech (GPL v2)</p>
     <p class="splash-hint">Toca ou carrega numa tecla para continuar</p>
   </div>
 </div>

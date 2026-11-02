@@ -94,30 +94,25 @@ code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; }
 #app {
   flex: 1; min-height: 0;
   display: grid;
-  --side-w: 270px; --info-w: 330px;
-  grid-template-columns: var(--side-w) minmax(0, 1fr) var(--info-w);
+  --side-w: 270px;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
   position: relative;
 }
 #side { grid-column: 1; }
 #viewer { grid-column: 2; }
-#info { grid-column: 3; }
 @media (min-width: 961px) {
-  #app.hide-side { grid-template-columns: 0 minmax(0, 1fr) var(--info-w); }
-  #app.hide-info { grid-template-columns: var(--side-w) minmax(0, 1fr) 0; }
-  #app.hide-side.hide-info { grid-template-columns: 0 minmax(0, 1fr) 0; }
-  #app.hide-side > #side, #app.hide-info > #info { display: none; }
-  #app.hide-side > #rzSide, #app.hide-info > #rzInfo { display: none; }
+  #app.hide-side { grid-template-columns: 0 minmax(0, 1fr); }
+  #app.hide-side > #side, #app.hide-side > #rzSide { display: none; }
 }
 button.icon[aria-pressed="false"] { opacity: 0.55; }
 #btnRestore { display: none; position: fixed; top: 8px; right: 8px; z-index: 20; box-shadow: var(--shadow); }
 body.focus #btnRestore { display: block; }
-body.focus .top, body.focus #side, body.focus #info { display: none; }
+body.focus .top, body.focus #side { display: none; }
 body.focus #app { grid-template-columns: minmax(0, 1fr); }
 body.focus #viewer { grid-column: 1; }
 #app.empty > #side, #app.empty > #viewer, #app.empty > #info { visibility: hidden; }
-#side, #info { background: var(--panel); overflow: auto; min-height: 0; }
+#side { background: var(--panel); overflow: auto; min-height: 0; }
 #side { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
-#info { border-left: 1px solid var(--line); padding: 14px; }
 
 .tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
 .tabs button {
@@ -233,17 +228,15 @@ body.dragging::after {
   .chk, .proj-title { display: none; }
   #app { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
   #viewer { grid-column: 1; }
-  #side, #info {
+  #side {
     position: absolute; top: 0; bottom: 0; z-index: 4; width: min(88vw, var(--side-w));
     box-shadow: var(--shadow); transform: translateX(-105%); transition: transform 0.2s;
   }
-  #info { right: 0; left: auto; width: min(88vw, var(--info-w)); transform: translateX(105%); }
-  #app.show-side #side, #app.show-info #info { transform: none; }
+  #app.show-side #side { transform: none; }
   .resizer { display: none; }
   #app.show-side > #rzSide { display: block; left: calc(min(88vw, var(--side-w)) - 7px); }
-  #app.show-info > #rzInfo { display: block; right: calc(min(88vw, var(--info-w)) - 7px); }
 }
-@media (prefers-reduced-motion: reduce) { #side, #info { transition: none; } }
+@media (prefers-reduced-motion: reduce) { #side { transition: none; } }
 
 @media print {
   .top, #side, #info, .toolbar { display: none !important; }
@@ -273,7 +266,6 @@ body.dragging::after {
 }
 .resizer:hover::after, .resizer:focus-visible::after, .resizer.drag::after { background: var(--accent, #c0392b); }
 #rzSide { left: calc(var(--side-w) - 7px); }
-#rzInfo { right: calc(var(--info-w) - 7px); }
 #app.empty > .resizer, body.focus .resizer { display: none; }
 body.resizing { cursor: col-resize; user-select: none; }
 body.resizing #stage { pointer-events: none; }
@@ -298,11 +290,12 @@ body.resizing #stage { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { #splash { transition: none; } .splash-logo { animation: none; } }
 @media print { #splash { display: none; } }
 
-/* ecrã inteiro: os detalhes e as notas abrem num pop-up sobre o desenho */
-.pop-close { display: none; }
-body.focus.has-sel #app #info {
-  display: block !important; position: fixed; z-index: 15; top: 56px; right: 12px; bottom: auto; left: auto;
-  width: min(380px, calc(100vw - 24px)); max-height: min(70vh, calc(100vh - 140px));
-  transform: none !important; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+/* detalhes e notas: pop-up sobre o desenho (aparece ao seleccionar algo ou com o botão ⓘ) */
+#info {
+  display: none; position: fixed; z-index: 15; top: 56px; right: 12px;
+  width: min(380px, calc(100vw - 24px)); max-height: min(70vh, calc(100vh - 140px)); overflow: auto;
+  background: var(--panel); padding: 14px; border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
 }
-body.focus.has-sel .pop-close { display: block; position: sticky; top: 0; float: right; margin: -6px -6px 0 8px; z-index: 1; }
+body.has-sel #info, #app.show-info #info { display: block; }
+#app.empty > #info { display: none; }
+.pop-close { position: sticky; top: 0; float: right; margin: -6px -6px 0 8px; z-index: 1; }

@@ -36,7 +36,7 @@ e abrir `http://localhost:8766/?emulator&as=ana` (ou `as=rui`, `as=francisco`). 
 
 ## Notas partilhadas com Microsoft 365 (tudo gratuito, sem cartão)
 
-Com o Firebase configurado, a página exige login com a conta Microsoft 365 e as notas passam a ser guardadas no Firestore, visíveis a toda a equipa **em tempo real**. Sem configuração (ou fora do Firebase) continua o modo local.
+Com o Firebase configurado, a página exige login com a conta Microsoft 365 e as notas passam a ser guardadas no Firestore, visíveis a toda a equipa **em tempo real**. Sem configuração (ou fora do Firebase) continua o modo local. Para testar sem login (p.ex. num tablet), abre o endereço com `?local`: não há servidor nem partilha, as notas ficam só nesse browser.
 
 - O **email** de quem escreve vem do login e as **datas** são as do servidor: as regras (`firestore.rules`) recusam notas com outro autor ou datas falsas, e impedem mudar quem criou uma nota. O **nome** mostrado é o da conta e serve só para apresentação; o que identifica é o email.
 - As notas ligam-se ao **título do projecto** + UUID dos elementos: todas as revisões do mesmo projecto partilham notas.
