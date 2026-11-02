@@ -18,7 +18,7 @@
 
 <header class="top">
   <button class="icon" id="btnSide" title="Mostrar / esconder a lista de folhas (B)" aria-label="Lista de folhas" aria-pressed="true">☰</button>
-  <div class="brand"><img src="icons/icon.svg" alt="" class="brand-icon">QElectroTech View <span class="badge" title="O ficheiro nunca é alterado">só leitura</span></div>
+  <div class="brand" id="brand" role="button" tabindex="0" title="Sobre a aplicação"><img src="icons/icon.svg" alt="" class="brand-icon">QElectroTech View <span class="badge" title="O ficheiro nunca é alterado">só leitura</span></div>
   <button id="btnOpen" class="primary">Abrir ficheiro .qet</button>
   <input type="file" id="file" accept=".qet,.xml,application/xml,text/xml" hidden>
   <span id="projTitle" class="proj-title"></span>
@@ -26,6 +26,7 @@
   <span id="userChip" class="user-chip" title="Sessão iniciada com a conta Microsoft 365" hidden></span>
   <button id="logout" class="logout" hidden>Sair</button>
   <label class="chk" title="Mostrar no desenho a localização dos contactos / do mestre / dos reports"><input type="checkbox" id="optXref" checked> Ref. cruzadas no desenho</label>
+  <button class="icon" id="btnMail" title="Partilhar as notas por email" aria-label="Partilhar as notas por email" disabled>✉</button>
   <button class="icon" id="btnInfo" title="Mostrar / esconder detalhes e notas (I)" aria-label="Detalhes e notas" aria-pressed="true">ⓘ</button>
   <button class="icon" id="btnFocus" title="Ecrã inteiro do desenho: esconde todas as barras (F)" aria-label="Ecrã inteiro do desenho">⤢</button>
 </header>
@@ -113,6 +114,22 @@
     </div>
   </div>
 </main>
+
+<div id="splash" role="dialog" aria-modal="true" aria-labelledby="splashTitle" tabindex="-1">
+  <div class="splash-card">
+    <img src="icons/icon.svg" alt="" class="splash-logo">
+    <h1 id="splashTitle">QElectroTech View</h1>
+    <p class="splash-tag">Consulta de esquemas QElectroTech, só em leitura</p>
+    <ul class="splash-list">
+      <li><strong>Só leitura</strong> O ficheiro .qet abre no teu browser e nunca é alterado nem enviado.</li>
+      <li><strong>Referências cruzadas</strong> Salta entre contactos, bobinas e reports de folha.</li>
+      <li><strong>Notas da equipa</strong> Com autor e data, partilhadas com a conta Microsoft 365.</li>
+      <li><strong>Pensado para tablet</strong> Esconde as barras, redimensiona-as e partilha as notas por email.</li>
+    </ul>
+    <p class="splash-foot">Versão 1.0 · formato e símbolos © equipa QElectroTech (GPL v2)</p>
+    <p class="splash-hint">Toca ou carrega numa tecla para continuar</p>
+  </div>
+</div>
 
 <button class="icon" id="btnRestore" title="Mostrar as barras (F ou Esc)" aria-label="Mostrar as barras">⤡</button>
 <script type="module" src="js/app.js"></script>

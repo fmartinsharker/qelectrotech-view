@@ -231,7 +231,7 @@ body.dragging::after {
 /* ecrãs estreitos */
 @media (max-width: 960px) {
   .chk, .proj-title { display: none; }
-  #app { grid-template-columns: minmax(0, 1fr); }
+  #app { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
   #viewer { grid-column: 1; }
   #side, #info {
     position: absolute; top: 0; bottom: 0; z-index: 4; width: min(88vw, var(--side-w));
@@ -278,3 +278,25 @@ body.dragging::after {
 body.resizing { cursor: col-resize; user-select: none; }
 body.resizing #stage { pointer-events: none; }
 @media print { .resizer { display: none; } }
+
+/* ecrã de abertura / sobre */
+.brand { cursor: pointer; }
+#splash {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px; overflow: auto; color: #fff; text-align: center;
+  background: radial-gradient(120% 90% at 50% 20%, #4f8fdc 0%, #2a5ea8 55%, #17365f 100%);
+  transition: opacity 0.4s ease, visibility 0.4s;
+}
+#splash.out { opacity: 0; visibility: hidden; pointer-events: none; }
+.splash-card { max-width: 460px; margin: auto; }
+.splash-logo { width: 132px; height: 132px; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35)); animation: splash-in 0.6s ease both; }
+#splash h1 { margin: 18px 0 4px; font-size: 30px; letter-spacing: 0.01em; }
+.splash-tag { margin: 0 0 20px; opacity: 0.85; }
+.splash-list { list-style: none; margin: 0 0 20px; padding: 0; text-align: left; font-size: 14px; display: grid; gap: 10px; }
+.splash-list li { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 10px; padding: 9px 12px; line-height: 1.4; }
+.splash-list strong { display: block; color: #ffd84d; font-size: 13px; }
+.splash-foot { margin: 0 0 6px; font-size: 12px; opacity: 0.7; }
+.splash-hint { margin: 0; font-size: 12px; opacity: 0.55; }
+@keyframes splash-in { from { transform: scale(0.8); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { #splash { transition: none; } .splash-logo { animation: none; } }
+@media print { #splash { display: none; } }
