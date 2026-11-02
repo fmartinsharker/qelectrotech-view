@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visualizador QElectroTech</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23c0392b'/%3E%3Cpath d='M18 4 8 18h7l-2 10 11-15h-7z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="top">
+  <button class="icon" id="btnSide" title="Mostrar / esconder a lista de folhas (B)" aria-label="Lista de folhas" aria-pressed="true">☰</button>
+  <div class="brand">Visualizador QET <span class="badge" title="O ficheiro nunca é alterado">só leitura</span></div>
+  <button id="btnOpen" class="primary">Abrir ficheiro .qet</button>
+  <input type="file" id="file" accept=".qet,.xml,application/xml,text/xml" hidden>
+  <span id="projTitle" class="proj-title"></span>
+  <span class="spacer"></span>
+  <span id="userChip" class="user-chip" title="Sessão iniciada com a conta Microsoft 365" hidden></span>
+  <a id="logout" class="logout" href="/.auth/logout?post_logout_redirect_uri=/" hidden>Sair</a>
+  <label class="chk" title="Mostrar no desenho a localização dos contactos / do mestre / dos reports"><input type="checkbox" id="optXref" checked> Ref. cruzadas no desenho</label>
+  <button class="icon" id="btnInfo" title="Mostrar / esconder detalhes e notas (I)" aria-label="Detalhes e notas" aria-pressed="true">ⓘ</button>
+  <button class="icon" id="btnFocus" title="Ecrã inteiro do desenho: esconde todas as barras (F)" aria-label="Ecrã inteiro do desenho">⤢</button>
+</header>
+
+<main id="app" class="empty">
+  <aside id="side">
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="folios" class="on">Folhas</button>
+      <button role="tab" data-tab="search">Pesquisa</button>
+      <button role="tab" data-tab="notes">Notas <span id="noteCount" class="count"></span></button>
+    </nav>
+    <section class="tabpane on" id="tab-folios">
+      <input id="folioFilter" type="search" placeholder="Filtrar folhas…" aria-label="Filtrar folhas">
+      <ol id="folioList" class="list"></ol>
+    </section>
+    <section class="tabpane" id="tab-search">
+      <input id="search" type="search" placeholder="Etiqueta, nome, folha, nota…   ( / )" aria-label="Pesquisar">
+      <div id="searchInfo" class="hint"></div>
+      <ul id="searchResults" class="list"></ul>
+    </section>
+    <section class="tabpane" id="tab-notes">
+      <label class="user-row" id="userRow">Utilizador
+        <input id="userName" type="text" placeholder="O teu nome" autocomplete="name" aria-label="Nome do utilizador registado nas notas">
+      </label>
+      <div class="row">
+        <button id="btnExportNotes" title="Descarregar as notas em JSON">Exportar JSON</button>
+        <button id="btnExportMd" title="Descarregar as notas em Markdown">Exportar MD</button>
+        <button id="btnImportNotes" title="Juntar notas de um ficheiro JSON exportado">Importar</button>
+        <input type="file" id="notesFile" accept=".json,application/json" hidden>
+      </div>
+      <p id="notesWarn" class="hint"></p>
+      <ul id="noteList" class="list"></ul>
+    </section>
+  </aside>
+
+  <section id="viewer">
+    <div class="toolbar">
+      <button id="prev" title="Folha anterior (←)" aria-label="Folha anterior">‹</button>
+      <span id="folioPos" class="folio-pos">–</span>
+      <button id="next" title="Folha seguinte (→)" aria-label="Folha seguinte">›</button>
+      <span class="sep"></span>
+      <button id="zoomOut" title="Reduzir (−)" aria-label="Reduzir">−</button>
+      <button id="zoomIn" title="Ampliar (+)" aria-label="Ampliar">+</button>
+      <button id="zoomFit" title="Ajustar ao ecrã (0)">Ajustar</button>
+      <span class="sep"></span>
+      <button id="histBack" title="Voltar ao sítio anterior (Alt+←)">↶ Voltar</button>
+      <button id="histFwd" title="Avançar (Alt+→)" aria-label="Avançar">↷</button>
+      <span class="sep"></span>
+      <button id="pinTool" class="toggle" title="Colocar uma nota no desenho (N)">＋ Nota no desenho</button>
+      <span class="spacer"></span>
+      <span id="status" class="hint"></span>
+    </div>
+    <div id="stage" tabindex="0" aria-label="Desenho da folha"></div>
+  </section>
+
+  <aside id="info"><div id="infoBody"></div></aside>
+
+  <div id="welcome">
+    <div class="card">
+      <h1>Visualizador QElectroTech</h1>
+      <p>Abre um ficheiro <code>.qet</code> em <strong>modo de leitura</strong>, navega pelas <strong>referências cruzadas</strong> (contactos ↔ bobinas, reports de folha) e escreve <strong>notas</strong> sem alterar o projecto.</p>
+      <div id="drop" class="drop">
+        <p><strong>Arrasta o ficheiro .qet para aqui</strong></p>
+        <p>ou</p>
+        <button id="btnOpen2" class="primary">Escolher ficheiro…</button>
+      </div>
+      <p class="hint">O ficheiro é lido no teu browser e <strong>não é enviado para nenhum servidor</strong>. As notas ficam guardadas neste browser; podes exportá-las.</p>
+      <p id="loadError" class="error" role="alert"></p>
+    </div>
+  </div>
+</main>
+
+<button class="icon" id="btnRestore" title="Mostrar as barras (F ou Esc)" aria-label="Mostrar as barras">⤡</button>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+node_modules/
+local.settings.json
+.notes.json
+dev/.notes.json
+.claude/launch.json
+.DS_Store
