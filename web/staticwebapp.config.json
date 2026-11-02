@@ -9,17 +9,6 @@
   "responseOverrides": {
     "401": { "statusCode": 302, "redirect": "/.auth/login/aad?post_login_redirect_uri=.referrer" }
   },
-  "auth": {
-    "identityProviders": {
-      "azureActiveDirectory": {
-        "registration": {
-          "openIdIssuer": "https://login.microsoftonline.com/SUBSTITUIR-PELO-TENANT-ID/v2.0",
-          "clientIdSettingName": "AAD_CLIENT_ID",
-          "clientSecretSettingName": "AAD_CLIENT_SECRET"
-        }
-      }
-    }
-  },
   "globalHeaders": {
     "cache-control": "no-cache",
     "x-content-type-options": "nosniff",

@@ -1,12 +1,12 @@
 'use strict';
 const { app } = require('@azure/functions');
 const { handle } = require('../lib/notes-handler');
-const { tableStore } = require('../lib/table-store');
+const { cosmosStore } = require('../lib/cosmos-store');
 
 let storePromise;
 const getStore = () => {
-  if (!process.env.NOTES_STORAGE) throw new Error('A definição NOTES_STORAGE (ligação ao Storage) não está configurada.');
-  return (storePromise ||= tableStore(process.env.NOTES_STORAGE));
+  if (!process.env.COSMOS_CONNECTION) throw new Error('A definição COSMOS_CONNECTION (ligação ao Cosmos DB) não está configurada.');
+  return (storePromise ||= cosmosStore(process.env.COSMOS_CONNECTION));
 };
 
 app.http('notes', {

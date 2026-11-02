@@ -23,7 +23,7 @@ function parsePrincipal(header) {
   const claims = Array.isArray(p.claims) ? p.claims : [];
   const nameClaim = claims.find((c) => c && (c.typ === 'name' || /\/claims\/name$/.test(c.typ || '')));
   const email = p.userDetails.trim();
-  return { id: String(p.userId || email), email, name: String((nameClaim && nameClaim.val) || email).slice(0, 120) };
+  return { id: String(p.userId || email), email, roles, name: String((nameClaim && nameClaim.val) || email).slice(0, 120) };
 }
 
 function domainAllowed(email, env) {
@@ -42,6 +42,8 @@ async function handle(req, store, env = {}) {
   const user = parsePrincipal(req.headers && req.headers['x-ms-client-principal']);
   if (!user) return bad(401, 'Sessão não iniciada.');
   if (!domainAllowed(user.email, env)) return bad(403, 'Conta não autorizada.');
+  // opcional: exigir um papel atribuído por convite no Static Web Apps (ex.: "equipa")
+  if (env.REQUIRED_ROLE && !user.roles.includes(env.REQUIRED_ROLE)) return bad(403, 'Conta sem acesso ao projecto.');
 
   const project = typeof req.project === 'string' ? req.project : req.body && req.body.project;
   if (typeof project !== 'string' || !project.trim() || project.length > 300) return bad(400, 'Projecto em falta ou inválido.');

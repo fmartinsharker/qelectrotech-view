@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { handle, parsePrincipal } = require('../src/lib/notes-handler');
 const { memoryStore } = require('../src/lib/memory-store');
-const { toEntity, fromEntity, partitionOf } = require('../src/lib/table-store');
+const { fromItem, toItem } = require('../src/lib/cosmos-store');
 
 const principal = (email, name, roles = ['anonymous', 'authenticated']) =>
   Buffer.from(JSON.stringify({ identityProvider: 'aad', userId: 'id-' + email, userDetails: email, userRoles: roles, claims: name ? [{ typ: 'name', val: name }] : [] })).toString('base64');
@@ -96,9 +96,17 @@ test('parsePrincipal lê o nome do claim', () => {
   assert.equal(parsePrincipal(null), null);
 });
 
-test('mapeamento para Table Storage é reversível', () => {
+test('mapeamento para Cosmos DB é reversível e ignora propriedades de sistema', () => {
   const n = { id: 'pin_1', kind: 'pin', ref: 'r', text: 'olá', folio: 'f1', x: 3, y: 4, created: 1_760_000_000_000, createdBy: 'A', createdByEmail: 'a@b', updated: 1_760_000_000_001, updatedBy: 'B', updatedByEmail: 'b@b' };
-  const e = toEntity('Projecto', n);
-  assert.equal(e.partitionKey, partitionOf('Projecto'));
-  assert.deepEqual(fromEntity({ ...e }), n);
+  const item = toItem('Projecto', n);
+  assert.equal(item.project, 'Projecto'); // chave de partição
+  assert.deepEqual(fromItem({ ...item, _rid: 'x', _etag: 'y', _ts: 1 }), n);
+});
+
+test('papel exigido: só quem foi convidado com esse papel', async () => {
+  const s = memoryStore();
+  const withRole = { 'x-ms-client-principal': principal('ana@harkersolutions.com', 'Ana', ['anonymous', 'authenticated', 'equipa']) };
+  const env = { REQUIRED_ROLE: 'equipa' };
+  assert.equal((await handle({ method: 'GET', project: P, headers: ana }, s, env)).status, 403);
+  assert.equal((await handle({ method: 'GET', project: P, headers: withRole }, s, env)).status, 200);
 });
